@@ -576,6 +576,40 @@
   /* ── PWA install banner ── */
   #pwa-banner { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:14px 24px; z-index:400; flex-align:center; justify-content:space-between; gap:12px; }
 
+
+  /* LEADERBOARD ICON TABS */
+  .tab-bar { display:flex; gap:4px; flex-wrap:wrap; }
+  .tab-btn {
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 52px;
+    flex: 1;
+    transition: all .15s;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tab-btn .tab-icon { font-size: 18px; line-height: 1; }
+  .tab-btn .tab-lbl { font-size: 9px; letter-spacing: 1px; }
+  .tab-btn.active {
+    border-color: rgba(232,255,71,.4);
+    background: rgba(232,255,71,.06);
+    color: var(--accent);
+  }
+  .tab-btn:hover:not(.active) {
+    background: var(--surface2);
+    color: var(--text2);
+  }
+
 </style>
 </head>
 <body>
@@ -947,12 +981,12 @@
 
         <!-- Tabs -->
         <div class="tab-bar" style="margin-bottom:20px">
-          <button class="tab-btn active" id="lb-tab-gs" onclick="lbSetTab('gs')">🏆 Gamerscore</button>
-          <button class="tab-btn" id="lb-tab-vol" onclick="lbSetTab('vol')">🔥 Volume</button>
-          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')">📅 Sessions</button>
-          <button class="tab-btn" id="lb-tab-prs" onclick="lbSetTab('prs')">🎯 PRs</button>
-          <button class="tab-btn" id="lb-tab-h2h" onclick="lbSetTab('h2h')">⚔️ Head-to-Head</button>
-          <button class="tab-btn" id="lb-tab-chat" onclick="lbSetTab('chat')">💬 Shit Talk</button>
+          <button class="tab-btn active" id="lb-tab-gs" onclick="lbSetTab('gs')"><span class="tab-icon">🏆</span><span class="tab-lbl">Score</span></button>
+          <button class="tab-btn" id="lb-tab-vol" onclick="lbSetTab('vol')"><span class="tab-icon">🔥</span><span class="tab-lbl">Volume</span></button>
+          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')"><span class="tab-icon">📅</span><span class="tab-lbl">Sessions</span></button>
+          <button class="tab-btn" id="lb-tab-prs" onclick="lbSetTab('prs')"><span class="tab-icon">🎯</span><span class="tab-lbl">PRs</span></button>
+          <button class="tab-btn" id="lb-tab-h2h" onclick="lbSetTab('h2h')"><span class="tab-icon">⚔️</span><span class="tab-lbl">H2H</span></button>
+          <button class="tab-btn" id="lb-tab-chat" onclick="lbSetTab('chat')"><span class="tab-icon">💬</span><span class="tab-lbl">Chat</span></button>
         </div>
 
 <div class="challenge-card" style="margin-bottom:20px" id="lb-challenge-card"></div>
