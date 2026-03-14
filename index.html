@@ -1102,7 +1102,7 @@
       <div class="page-header">
         <div>
           <div class="page-title" id="guided-title">Workout</div>
-          <div class="page-subtitle" id="guided-subtitle">Exercise 1 of 1</div>
+          <div class="page-subtitle" id="guided-subtitle">Fill in your sets, then tap Next</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="guidedQuit()">✕ Quit</button>
       </div>
@@ -4439,58 +4439,8 @@ function renderTemplates() {
 }
 
 function tplLoad(id) {
-  const tpl = DB.templates.find(t=>t.id===id);
-  if (!tpl) return;
-  haptic('medium');
-  showPage('log');
-  if (!tpl.exercises.length) return;
-
-  setTimeout(() => {
-    // Load first exercise into the log form
-    const first = tpl.exercises[0];
-    const ex = DB.exercises.find(e=>e.id===first.exerciseId);
-    if (ex) {
-      selectSplit(ex.category);
-      setTimeout(() => {
-        selectExercise(first.exerciseId);
-        document.getElementById('sets-container').innerHTML = '';
-        for (let i=0;i<first.sets;i++) addSetRow('', first.reps);
-      }, 100);
-    }
-
-    // Show the full template plan above the log form
-    const exercises = DB.exercises;
-    const planItems = tpl.exercises.map((te, i) => {
-      const e = exercises.find(ex=>ex.id===te.exerciseId);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="tplLoadExercise('${id}',${i})" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
-        <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'var(--accent)':'var(--surface3)'};color:${i===0?'#000':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${e?e.name:'Unknown'}</div>
-          <div style="font-size:11px;color:var(--text3)">${te.sets} sets × ${te.reps} reps</div>
-        </div>
-        <div style="font-size:11px;color:var(--accent2)">Tap to load</div>
-      </div>`;
-    }).join('');
-
-    // Insert plan above the log card
-    const logCard = document.querySelector('#page-log .card');
-    if (logCard) {
-      const existing = document.getElementById('tpl-plan-card');
-      if (existing) existing.remove();
-      const planCard = document.createElement('div');
-      planCard.id = 'tpl-plan-card';
-      planCard.className = 'card';
-      planCard.style.marginBottom = '16px';
-      planCard.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div class="card-title" style="margin-bottom:0">📋 ${tpl.name}</div>
-          <button onclick="document.getElementById('tpl-plan-card').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
-        </div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Tap any exercise to load it into the log form</div>
-        ${planItems}`;
-      logCard.parentNode.insertBefore(planCard, logCard);
-    }
-  }, 150);
+  // Just use guided mode - it's the proper way to do multi-exercise templates
+  guidedStart(id);
 }
 
 function tplLoadExercise(tplId, exerciseIndex) {
