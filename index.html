@@ -2858,7 +2858,7 @@ function aiptGetContext() {
   });
   const weekStr = Object.entries(weekSplits).map(([s,n]) => `${s}: ${n} sessions`).join(', ') || 'No sessions this week';
 
-  return `You are an expert personal trainer and coach inside a gym tracking app called Dialled. You have full access to the user's training data. Be direct, specific and motivating. Give actionable advice. Keep responses concise but thorough.
+  return `You are a no-nonsense personal trainer in a gym app called Dialled. You have the user's full training data. Keep responses SHORT and punchy — 2-4 sentences max. Be direct like a real PT talking to a client. No bullet points, no long explanations. Just tell them what to do and why in plain English.
 
 USER'S TRAINING DATA:
 - Total sessions: ${totalSessions}
