@@ -798,7 +798,7 @@
 
             <div class="section-label">Sets</div>
             <div id="sets-container"></div>
-            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="addSetRow()">+ Add Set</button><button class="btn btn-secondary btn-sm" onclick="restTimerStart(90)" id="rest-btn">⏱ Rest Timer</button></div>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="addSetRow()">+ Add Set</button><button class="btn btn-secondary btn-sm" onclick="restTimerToggle()" id="rest-btn">⏱ Rest Timer</button></div>
 
             <div class="form-group mt-16">
               <label class="form-label">Session Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
@@ -1068,6 +1068,7 @@
             <input type="text" class="form-input" id="tpl-ex-search" placeholder="🔍 Filter exercises..." style="margin-bottom:8px;font-size:13px" oninput="tplFilterAllRows(this.value)">
             <div id="tpl-exercises-list" style="margin-bottom:8px"></div>
             <button class="btn btn-secondary btn-sm" onclick="tplAddExRow()">+ Add Exercise</button>
+            <div id="tpl-ex-count" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:16px">
             <button class="btn btn-primary" style="flex:1" onclick="tplSave()">Save Template</button>
@@ -1516,6 +1517,7 @@ function showPage(name) {
   if (name === 'manage') { renderExercises(); renderSplitsPage(); }
   if (name === 'history') renderHistory();
   if (name === 'stats') { statsSetTab('body'); }
+  if (name === 'guided') {} // handled by guidedStart
   if (name === 'achievements') renderAchievements();
   if (name === 'leaderboard') lbInit();
 
@@ -2168,6 +2170,8 @@ function deleteWorkout(id) {
 let progressCharts = [];
 
 function renderProgressPage() {
+  seedDefaults();
+  populateSplitSelects();
   const sel = document.getElementById('progress-exercise-select');
   const splits2 = [...Object.keys(EXERCISE_LIBRARY), 'Custom'];
   const libNames = Object.values(EXERCISE_LIBRARY).flat();
@@ -2662,7 +2666,7 @@ function guidedRender() {
 
   if (prevWorkouts.length > 0) {
     const last = prevWorkouts[0];
-    const setStr = last.sets.map(s => s.weight > 0 ? `${s.weight}kg × ${s.reps}` : `${s.reps} reps`).join(' · ');
+    const setStr = last.sets.map(s => s.weight > 0 ? `${s.weight}kg × ${s.reps} reps` : `BW × ${s.reps} reps`).join(' · ');
     prevContent.innerHTML = `<div style="font-size:13px;color:var(--text)">${setStr}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${formatDate(last.date)}</div>`;
     
     // PT-style advice
@@ -2772,6 +2776,13 @@ function guidedFinish() {
     if (!confirm('No sets logged — quit anyway?')) return;
   }
 
+  // Calculate duration
+  const durationMs = new Date() - _guidedStartTime;
+  const durationMins = Math.round(durationMs / 60000);
+  const durationStr = durationMins >= 60 
+    ? `${Math.floor(durationMins/60)}h ${durationMins%60}m`
+    : `${durationMins}m`;
+
   // Update progress bar to 100%
   document.getElementById('guided-progress-bar').style.width = '100%';
 
@@ -2781,7 +2792,7 @@ function guidedFinish() {
 
   // Show completion message then go to dashboard
   const subtitle = document.getElementById('guided-subtitle');
-  subtitle.textContent = `${saved} exercise${saved!==1?'s':''} saved 🎉`;
+  subtitle.textContent = `${saved} exercise${saved!==1?'s':''} saved in ${durationStr} 🎉`;
   document.getElementById('guided-finish-btn').textContent = '✓ Done!';
   document.getElementById('guided-finish-btn').disabled = true;
 
@@ -4071,6 +4082,16 @@ function haptic(type) {
 // ═══════════════════════════════════════════════════════════════════
 let _restInterval = null, _restRemaining = 0;
 
+function restTimerToggle() {
+  const widget = document.getElementById('rest-timer-widget');
+  if (!widget) return;
+  if (widget.classList.contains('visible')) {
+    restTimerStop();
+  } else {
+    widget.classList.add('visible');
+  }
+}
+
 function restTimerStart(secs) {
   haptic('light');
   _restRemaining = secs;
@@ -4680,5 +4701,18 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+
+<!-- REST TIMER -->
+<div class="rest-timer" id="rest-timer-widget">
+  <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px">REST</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--text);line-height:1" id="rest-timer-val">90</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">seconds</div>
+  <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="restTimerStart(60)">60s</button>
+    <button class="btn btn-secondary btn-sm" onclick="restTimerStart(90)">90s</button>
+    <button class="btn btn-secondary btn-sm" onclick="restTimerStart(120)">120s</button>
+    <button class="btn btn-danger btn-sm" onclick="restTimerStop()">✕</button>
+  </div>
+</div>
 </body>
 </html>
