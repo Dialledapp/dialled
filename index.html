@@ -610,6 +610,8 @@
     color: var(--text2);
   }
 
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 </style>
 </head>
 <body>
@@ -655,6 +657,9 @@
       </div>
       <div class="nav-item" onclick="showPage('templates')">
         <span class="nav-icon">📋</span> Templates
+      </div>
+      <div class="nav-item" onclick="showPage('aipt')">
+        <span class="nav-icon">🤖</span> AI PT
       </div>
       <div class="nav-item" onclick="showPage('manage')">
         <span class="nav-icon">⚙️</span> Manage
@@ -1137,6 +1142,42 @@
         <button class="btn btn-primary" id="guided-finish-btn" onclick="guidedFinish()" style="flex:2;font-size:16px;padding:14px;display:none;background:var(--green);border-color:var(--green)">✓ Finish Workout</button>
       </div>
     </div>
+
+    <!-- AI PT PAGE -->
+    <div class="page" id="page-aipt">
+      <div class="page-header">
+        <div>
+          <div class="page-title">AI PT</div>
+          <div class="page-subtitle">Your personal trainer</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="aiptClear()">Clear chat</button>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;padding:12px 16px;border-color:rgba(232,255,71,.2);background:rgba(232,255,71,.03)">
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">
+          <strong style="color:var(--accent)">Your AI PT knows everything about your training</strong> — your workouts, PRs, volume, progress and goals. Ask it anything.
+        </div>
+      </div>
+
+      <!-- Suggested questions -->
+      <div id="aipt-suggestions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <button onclick="aiptAsk(this.textContent)" style="background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer">How am I progressing?</button>
+        <button onclick="aiptAsk(this.textContent)" style="background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer">What should I focus on?</button>
+        <button onclick="aiptAsk(this.textContent)" style="background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer">Am I training enough?</button>
+        <button onclick="aiptAsk(this.textContent)" style="background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer">Build me a plan</button>
+        <button onclick="aiptAsk(this.textContent)" style="background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer">What are my weaknesses?</button>
+      </div>
+
+      <!-- Chat messages -->
+      <div id="aipt-messages" style="min-height:200px;margin-bottom:16px"></div>
+
+      <!-- Input -->
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <textarea class="form-input" id="aipt-input" placeholder="Ask your coach anything..." rows="2" style="flex:1;resize:none;font-size:14px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiptSend()}"></textarea>
+        <button class="btn btn-primary" onclick="aiptSend()" id="aipt-send-btn" style="padding:10px 18px">Send</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Press Enter to send · Shift+Enter for new line</div>
+    </div>
   </main>
 </div>
 
@@ -1480,6 +1521,7 @@ function showPage(name) {
 
   if (name === 'templates') renderTemplates();
   if (name === 'guided') {} // handled by guidedStart
+  if (name === 'aipt') aiptRenderMessages();
   // Close sidebar on mobile
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
@@ -2753,6 +2795,180 @@ function guidedQuit() {
   if (!confirm('Quit this workout? Your progress so far will be lost.')) return;
   _guidedTpl = null;
   showPage('templates');
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// AI COACH — Claude API
+// ═══════════════════════════════════════════════════════════════════
+let _aiptHistory = [];
+
+function aiptGetContext() {
+  const workouts = DB.workouts;
+  const exercises = DB.exercises;
+  const prs = getPRs();
+
+  // Build a summary of the user's training data
+  const totalSessions = workouts.length;
+  const totalVol = Math.round(workouts.reduce((s,w) => s + w.sets.reduce((a,b) => a+b.weight*b.reps,0),0));
+  const recentWorkouts = [...workouts].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,10);
+
+  // Exercise frequency
+  const exFreq = {};
+  workouts.forEach(w => {
+    const ex = exercises.find(e => e.id === w.exerciseId);
+    if (ex) exFreq[ex.name] = (exFreq[ex.name]||0) + 1;
+  });
+  const topExercises = Object.entries(exFreq).sort((a,b) => b[1]-a[1]).slice(0,10).map(([name,count]) => `${name} (${count}x)`).join(', ');
+
+  // PRs summary
+  const prSummary = Object.entries(prs).map(([exId, pr]) => {
+    const ex = exercises.find(e => e.id === exId);
+    return ex ? `${ex.name}: ${pr.weight}kg × ${pr.reps}` : null;
+  }).filter(Boolean).slice(0,10).join(', ');
+
+  // Recent workouts
+  const recentStr = recentWorkouts.map(w => {
+    const ex = exercises.find(e => e.id === w.exerciseId);
+    const maxW = Math.max(...w.sets.map(s => s.weight));
+    return `${w.date}: ${ex?.name||'Unknown'} — ${w.sets.length} sets, max ${maxW}kg`;
+  }).join('\n');
+
+  // Volume by split this week
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0,0,0,0);
+  const thisWeek = workouts.filter(w => new Date(w.date) >= weekStart);
+  const weekSplits = {};
+  thisWeek.forEach(w => {
+    const ex = exercises.find(e => e.id === w.exerciseId);
+    if (ex) weekSplits[ex.category] = (weekSplits[ex.category]||0) + 1;
+  });
+  const weekStr = Object.entries(weekSplits).map(([s,n]) => `${s}: ${n} sessions`).join(', ') || 'No sessions this week';
+
+  return `You are an expert personal trainer and coach inside a gym tracking app called Dialled. You have full access to the user's training data. Be direct, specific and motivating. Give actionable advice. Keep responses concise but thorough.
+
+USER'S TRAINING DATA:
+- Total sessions: ${totalSessions}
+- Total volume lifted: ${totalVol}kg
+- Gamerscore: ${getTotalGamerScore()}G
+- Achievements unlocked: ${DB.unlockedAchievements.length}
+- This week: ${weekStr}
+- Most trained exercises: ${topExercises || 'No exercises yet'}
+- Personal records: ${prSummary || 'No PRs yet'}
+
+RECENT SESSIONS (last 10):
+${recentStr || 'No sessions logged yet'}
+
+Respond as their coach. Be encouraging but honest. If they have no data yet, encourage them to start logging.`;
+}
+
+async function aiptSend() {
+  const input = document.getElementById('aipt-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  await aiptAsk(msg);
+  input.value = '';
+}
+
+async function aiptAsk(message) {
+  // Hide suggestions after first message
+  const suggestions = document.getElementById('aipt-suggestions');
+  if (suggestions) suggestions.style.display = 'none';
+
+  // Add user message
+  _aiptHistory.push({ role: 'user', content: message });
+  aiptRenderMessages();
+
+  // Show typing indicator
+  const messagesEl = document.getElementById('aipt-messages');
+  const typingId = 'aipt-typing-' + Date.now();
+  messagesEl.innerHTML += `<div id="${typingId}" style="display:flex;gap:10px;margin-bottom:14px">
+    <div style="width:32px;height:32px;border-radius:50%;background:rgba(232,255,71,.2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px 12px 12px 12px;padding:10px 14px;font-size:14px;color:var(--text2)">
+      <span style="animation:blink 1s infinite">Thinking...</span>
+    </div>
+  </div>`;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Disable send button
+  const btn = document.getElementById('aipt-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: aiptGetContext(),
+        messages: _aiptHistory
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.content?.[0]?.text || 'Sorry, I could not get a response. Try again.';
+
+    // Remove typing indicator
+    const typing = document.getElementById(typingId);
+    if (typing) typing.remove();
+
+    _aiptHistory.push({ role: 'assistant', content: reply });
+    aiptRenderMessages();
+  } catch(e) {
+    const typing = document.getElementById(typingId);
+    if (typing) typing.remove();
+    _aiptHistory.push({ role: 'assistant', content: "Sorry, I couldn't connect. Make sure you're online and try again." });
+    aiptRenderMessages();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
+    const el = document.getElementById('aipt-messages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+}
+
+function aiptRenderMessages() {
+  const el = document.getElementById('aipt-messages');
+  if (!el) return;
+
+  if (!_aiptHistory.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+      <div style="font-size:36px;margin-bottom:12px">🤖</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px">Your AI PT is ready</div>
+      <div style="font-size:13px">Ask anything about your training, progress, or what to work on next</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = _aiptHistory.map(msg => {
+    const isUser = msg.role === 'user';
+    if (isUser) {
+      return `<div style="display:flex;gap:10px;margin-bottom:14px;flex-direction:row-reverse">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(232,255,71,.2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">You</div>
+        <div style="background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.2);border-radius:12px 2px 12px 12px;padding:10px 14px;font-size:14px;color:var(--text);max-width:80%;line-height:1.5">${msg.content}</div>
+      </div>`;
+    } else {
+      // Format AI response — convert **bold** and newlines
+      const formatted = msg.content
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text)">$1</strong>')
+        .replace(/\n\n/g, '</p><p style="margin:8px 0">')
+        .replace(/\n/g, '<br>');
+      return `<div style="display:flex;gap:10px;margin-bottom:14px">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(232,255,71,.2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px 12px 12px 12px;padding:12px 14px;font-size:14px;color:var(--text);max-width:85%;line-height:1.6"><p style="margin:0">${formatted}</p></div>
+      </div>`;
+    }
+  }).join('');
+
+  el.scrollTop = el.scrollHeight;
+}
+
+function aiptClear() {
+  _aiptHistory = [];
+  aiptRenderMessages();
+  const suggestions = document.getElementById('aipt-suggestions');
+  if (suggestions) suggestions.style.display = 'flex';
 }
 
 // ═══════════════════════════════════════════════════════════════════
