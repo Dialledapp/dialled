@@ -2908,7 +2908,10 @@ async function aiptAsk(message) {
     });
 
     const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Sorry, I could not get a response. Try again.';
+    console.log('AI PT response:', JSON.stringify(data).slice(0,300));
+    const reply = data.content?.[0]?.text || 
+      (data.error ? 'API Error: ' + (data.error.message || JSON.stringify(data.error)) : 
+      'Sorry, I could not get a response. Try again.');
 
     // Remove typing indicator
     const typing = document.getElementById(typingId);
