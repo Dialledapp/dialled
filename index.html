@@ -640,29 +640,22 @@
       <div class="nav-item" onclick="showPage('log')">
         <span class="nav-icon">➕</span> Log Workout
       </div>
-      <div class="nav-item" onclick="showPage('exercises')">
-        <span class="nav-icon">🏋️</span> Exercises
-      </div>
+
       <div class="nav-item" onclick="showPage('history')">
         <span class="nav-icon">📋</span> History
       </div>
-      <div class="nav-item" onclick="showPage('progress')">
-        <span class="nav-icon">📈</span> Progress
+      <div class="nav-item" onclick="showPage('stats')">
+        <span class="nav-icon">📈</span> Stats
       </div>
-      <div class="nav-item" onclick="showPage('volume')">
-        <span class="nav-icon">🔥</span> Volume
-      </div>
-      <div class="nav-item" onclick="showPage('bodyweight')">
-        <span class="nav-icon">⚖️</span> Body Weight
-      </div>
+
       <div class="nav-item" onclick="showPage('templates')">
         <span class="nav-icon">📋</span> Templates
       </div>
       <div class="nav-item" onclick="showPage('leaderboard')">
         <span class="nav-icon">🥇</span> Leaderboard
       </div>
-      <div class="nav-item" onclick="showPage('splits')">
-        <span class="nav-icon">🗂️</span> Manage Splits
+      <div class="nav-item" onclick="showPage('manage')">
+        <span class="nav-icon">⚙️</span> Manage
       </div>
       <div class="nav-item" onclick="showPage('achievements')">
         <span class="nav-icon">🏆</span> Achievements
@@ -763,7 +756,9 @@
             </div>
             <div class="form-group" id="exercise-picker-group" style="display:none">
               <label class="form-label">Exercise</label>
+              <input type="text" class="form-input" id="log-ex-search" placeholder="🔍 Search exercises..." style="margin-bottom:8px;font-size:13px" oninput="logFilterExercises(this.value)">
               <div id="exercise-picker-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:220px;overflow-y:auto;padding-right:4px"></div>
+              <button onclick="logQuickAddExercise()" style="margin-top:8px;width:100%;background:none;border:1px dashed var(--border);border-radius:8px;padding:8px;color:var(--text3);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">+ Can't find it? Add a custom exercise</button>
               <input type="hidden" id="log-exercise">
               <div id="selected-exercise-display" style="display:none;margin-top:10px;padding:10px 14px;background:var(--surface3);border:1px solid var(--accent);border-radius:8px;font-weight:600;font-size:14px;color:var(--accent)"></div>
             </div>
@@ -830,23 +825,30 @@
     </div>
 
     <!-- EXERCISES PAGE -->
-    <div class="page" id="page-exercises">
+    <div class="page" id="page-manage">
       <div class="page-header">
-        <div>
-          <div class="page-title">Exercises</div>
-          <div class="page-subtitle">Your full movement library by split</div>
-        </div>
-        <button class="btn btn-primary" onclick="openExerciseModal()">+ Custom Exercise</button>
+        <div><div class="page-title">Manage</div><div class="page-subtitle">Exercises &amp; splits</div></div>
       </div>
 
-      <div id="ex-split-tabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px"></div>
-
-      <div class="grid-2">
-        <div id="exercise-list"></div>
-        <div class="card" id="exercise-detail-panel" style="display:none">
-          <div id="exercise-detail-content"></div>
-        </div>
+      <!-- Exercises section -->
+      <div class="card-title" style="font-size:16px;margin-bottom:16px">🏋️ Exercises</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" class="form-input" id="exercise-search" placeholder="🔍 Search exercises..." style="flex:1;font-size:13px" oninput="renderExercises()">
+        <button class="btn btn-primary btn-sm" onclick="openExerciseModal()">+ Add Exercise</button>
       </div>
+      <div id="exercise-split-filter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px"></div>
+      <div id="exercise-list"></div>
+
+      <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
+
+      <!-- Splits section -->
+      <div class="card-title" style="font-size:16px;margin-bottom:16px">🗂️ Splits</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-primary btn-sm" onclick="openSplitModal(null)">+ New Split</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetSplits()">Reset to defaults</button>
+      </div>
+      <div id="splits-list"></div>
+      <div id="split-edit-panel" style="display:none"></div>
     </div>
 
     <!-- HISTORY PAGE -->
@@ -870,44 +872,89 @@
     </div>
 
     <!-- PROGRESS PAGE -->
-    <div class="page" id="page-progress">
+    <div class="page" id="page-stats">
       <div class="page-header">
-        <div>
-          <div class="page-title">Progress</div>
-          <div class="page-subtitle">Your strength journey over time</div>
+        <div><div class="page-title">Stats</div><div class="page-subtitle">All your tracking in one place</div></div>
+      </div>
+
+      <!-- Sub tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
+        <button class="stats-tab active" id="stats-tab-body" onclick="statsSetTab('body')" style="padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1px solid rgba(232,255,71,.3);background:rgba(232,255,71,.1);color:var(--accent);cursor:pointer">⚖️ Body</button>
+        <button class="stats-tab" id="stats-tab-volume" onclick="statsSetTab('volume')" style="padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🔥 Volume</button>
+        <button class="stats-tab" id="stats-tab-progress" onclick="statsSetTab('progress')" style="padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">📈 Progress</button>
+      </div>
+
+      <!-- Body tab -->
+      <div id="stats-panel-body">
+        <div class="grid-2 mt-0">
+          <div class="card">
+            <div class="card-title">Log Weight</div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-input" id="bw-date">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Weight (kg)</label>
+                <input type="number" class="form-input" id="bw-weight" placeholder="e.g. 80.5" step="0.1" min="0">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="bwSave()">Save Weight</button>
+          </div>
+          <div class="card">
+            <div class="card-title">Stats</div>
+            <div class="grid-2" style="gap:8px">
+              <div class="stat-card blue" style="padding:12px"><div class="stat-label">Current</div><div class="stat-value" id="bw-current" style="font-size:22px">—</div></div>
+              <div class="stat-card green" style="padding:12px"><div class="stat-label">Change</div><div class="stat-value" id="bw-change" style="font-size:22px">—</div></div>
+              <div class="stat-card orange" style="padding:12px"><div class="stat-label">Min</div><div class="stat-value" id="bw-min" style="font-size:22px">—</div></div>
+              <div class="stat-card purple" style="padding:12px"><div class="stat-label">Average</div><div class="stat-value" id="bw-avg" style="font-size:22px">—</div></div>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <select class="form-select" style="width:155px" id="progress-split-filter" onchange="onProgressSplitChange()"><option value="">All splits</option></select>
-          <select class="form-select" style="width:220px" id="progress-exercise-select" onchange="renderProgressCharts()">
-            <option value="">— Select exercise —</option>
-          </select>
+        <div class="card mt-16">
+          <div class="card-title">Weight Over Time</div>
+          <div class="chart-container"><canvas id="bw-chart"></canvas></div>
+        </div>
+        <div class="card mt-16">
+          <div class="card-title">History</div>
+          <div id="bw-history"></div>
         </div>
       </div>
 
-      <div id="progress-content">
-        <div class="empty-state">
-          <div class="empty-icon">📈</div>
-          <div class="empty-title">Select an exercise</div>
-          <div class="empty-text">Choose an exercise to view your progress charts</div>
+      <!-- Volume tab -->
+      <div id="stats-panel-volume" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">Weekly Volume</div>
+            <select class="form-select" style="width:110px;padding:6px 10px;font-size:13px" id="volume-period" onchange="renderVolumePage()">
+              <option value="4">4 weeks</option>
+              <option value="8" selected>8 weeks</option>
+              <option value="12">12 weeks</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div id="volume-content"></div>
         </div>
       </div>
+
+      <!-- Progress tab -->
+      <div id="stats-panel-progress" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">Exercise Progress</div>
+            <select class="form-select" style="width:200px;padding:6px 10px;font-size:13px" id="progress-exercise-select" onchange="renderProgressCharts()"></select>
+          </div>
+          <div id="progress-split-filter-wrap" style="margin-bottom:12px">
+            <select class="form-select" style="width:150px;padding:6px 10px;font-size:13px" id="progress-split-filter" onchange="onProgressSplitChange()"><option value="">All splits</option></select>
+          </div>
+          <div id="progress-charts-area"></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- VOLUME PAGE -->
-    <div class="page" id="page-volume">
-      <div class="page-header">
-        <div><div class="page-title">Volume</div><div class="page-subtitle">Workload by split &amp; muscle group</div></div>
-        <select class="form-select" style="width:155px" id="volume-period" onchange="renderVolumePage()">
-          <option value="4">Last 4 weeks</option>
-          <option value="8" selected>Last 8 weeks</option>
-          <option value="12">Last 12 weeks</option>
-          <option value="all">All time</option>
-        </select>
-      </div>
-      <div id="volume-content"></div>
-    </div>
-
-
+    
 
     <!-- LEADERBOARD PAGE -->
     <div class="page" id="page-leaderboard">
@@ -997,45 +1044,7 @@
 
 
     <!-- BODY WEIGHT PAGE -->
-    <div class="page" id="page-bodyweight">
-      <div class="page-header">
-        <div><div class="page-title">Body Weight</div><div class="page-subtitle">Track your weight over time</div></div>
-        <button class="btn btn-primary" onclick="bwOpenLog()">+ Log Weight</button>
-      </div>
-      <div class="grid-2">
-        <div>
-          <div class="card" id="bw-log-card" style="display:none;margin-bottom:16px">
-            <div class="card-title">Log Today's Weight</div>
-            <div style="display:flex;gap:8px;align-items:flex-end">
-              <div class="form-group" style="flex:1;margin-bottom:0">
-                <label class="form-label">Weight (kg)</label>
-                <input type="number" class="form-input" id="bw-input" placeholder="e.g. 82.5" step="0.1" min="30" max="300">
-              </div>
-              <div class="form-group" style="flex:1;margin-bottom:0">
-                <label class="form-label">Date</label>
-                <input type="date" class="form-input" id="bw-date-input">
-              </div>
-              <button class="btn btn-primary" onclick="bwSave()">Save</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title">Weight History</div>
-            <div id="bw-history"></div>
-          </div>
-        </div>
-        <div>
-          <div class="card">
-            <div class="card-title">Weight Chart</div>
-            <div class="chart-container-lg"><canvas id="bw-chart"></canvas></div>
-          </div>
-          <div class="card mt-20" id="bw-stats-card">
-            <div class="card-title">Stats</div>
-            <div id="bw-stats"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
+    
 
     <!-- TEMPLATES PAGE -->
     <div class="page" id="page-templates">
@@ -1065,28 +1074,7 @@
     </div>
 
     <!-- SPLITS PAGE -->
-    <div class="page" id="page-splits">
-      <div class="page-header">
-        <div><div class="page-title">Manage Splits</div><div class="page-subtitle">Add, rename or delete your muscle group splits</div></div>
-        <button class="btn btn-primary" onclick="openAddSplitModal()">+ New Split</button>
-      </div>
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <div class="card-title">Your Splits</div>
-            <div id="splits-list"></div>
-          </div>
-          <div class="card mt-20" style="border-color:rgba(255,107,53,.3)">
-            <div class="card-title" style="color:var(--accent2)">⚠️ Reset to Defaults</div>
-            <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Restore the 6 default splits (Arms, Chest, Back, Legs, Shoulders, Core). This will not delete any exercises or workouts.</p>
-            <button class="btn btn-danger" onclick="resetSplitsToDefault()">Reset Splits</button>
-          </div>
-        </div>
-        <div class="card" id="split-edit-panel" style="display:none">
-          <div id="split-edit-content"></div>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- ACHIEVEMENTS PAGE -->
     <div class="page" id="page-achievements">
@@ -1307,28 +1295,74 @@ function populateSplitSelects() {
 const EXERCISE_LIBRARY = {
   Arms: [
     'Barbell Curl','Incline Dumbbell Curl','Hammer Curl','Preacher Curl',
-    'Tricep Pushdown','Overhead Tricep Extension','Close-Grip Bench Press','Cable Curl'
+    'Tricep Pushdown','Overhead Tricep Extension','Close-Grip Bench Press','Cable Curl',
+    'Concentration Curl','Spider Curl','Zottman Curl','Reverse Curl','Cable Hammer Curl',
+    'EZ Bar Curl','Machine Curl','Rope Hammer Curl','Single Arm Cable Curl',
+    'Tricep Dips','Skull Crushers','JM Press','Tate Press','Diamond Push-ups',
+    'Overhead Cable Tricep Extension','Single Arm Tricep Pushdown','Kickbacks',
+    'Cable Overhead Tricep Extension','Rope Tricep Pushdown','Reverse Grip Pushdown',
+    'Wrist Curl','Reverse Wrist Curl','Behind The Back Wrist Curl'
   ],
   Chest: [
     'Bench Press','Incline Bench Press','Decline Bench Press',
-    'Chest Fly (Dumbbell)','Chest Fly (Cable)','Push-ups','Cable Crossover'
+    'Chest Fly (Dumbbell)','Chest Fly (Cable)','Push-ups','Cable Crossover',
+    'Incline Dumbbell Press','Decline Dumbbell Press','Flat Dumbbell Press',
+    'Pec Deck Machine','Smith Machine Bench Press','Incline Cable Fly',
+    'Low Cable Fly','High Cable Fly','Decline Cable Fly','Svend Press',
+    'Landmine Press','Dumbbell Pullover','Machine Chest Press','Chest Dips',
+    'Wide Push-ups','Archer Push-ups','Pike Push-ups','Clap Push-ups',
+    'Incline Push-ups','Decline Push-ups','Weighted Push-ups','Banded Push-ups'
   ],
   Back: [
     'Pull-ups','Chin-ups','Lat Pulldown to Chest','Lat Pulldown to Stomach',
-    'Seated Cable Row','Bent-over Row (Barbell)','Bent-over Row (Dumbbell)','Deadlift','T-Bar Row'
+    'Seated Cable Row','Bent-over Row (Barbell)','Bent-over Row (Dumbbell)','Deadlift','T-Bar Row',
+    'Single Arm Dumbbell Row','Pendlay Row','Meadows Row','Machine Row',
+    'Cable Pullover','Straight Arm Pulldown','Face Pull','Chest Supported Row',
+    'Incline Dumbbell Row','Rack Pull','Snatch Grip Deadlift','Sumo Deadlift',
+    'Romanian Deadlift','Stiff Leg Deadlift','Good Morning','Hyperextension',
+    'Reverse Hyperextension','Inverted Row','TRX Row','Kroc Row',
+    'Wide Grip Pull-up','Neutral Grip Pull-up','Weighted Pull-up','Assisted Pull-up',
+    'Close Grip Lat Pulldown','Reverse Grip Lat Pulldown','Single Arm Lat Pulldown',
+    'Cable Row (Wide Grip)','Cable Row (Neutral Grip)','Seated Machine Row'
   ],
   Legs: [
     'Squat (Barbell)','Squat (Bodyweight)','Leg Press','Lunges (Dumbbell)',
-    'Lunges (Bodyweight)','Romanian Deadlift','Leg Curl','Leg Extension','Calf Raises'
+    'Lunges (Bodyweight)','Romanian Deadlift','Leg Curl','Leg Extension','Calf Raises',
+    'Hack Squat','Front Squat','Goblet Squat','Bulgarian Split Squat',
+    'Sumo Squat','Box Squat','Pause Squat','Pin Squat','Safety Bar Squat',
+    'Step Ups','Reverse Lunges','Walking Lunges','Lateral Lunges','Curtsy Lunges',
+    'Glute Bridge','Hip Thrust','Single Leg Hip Thrust','Cable Pull Through',
+    'Leg Press (Single Leg)','Seated Leg Curl','Lying Leg Curl','Nordic Curl',
+    'Stiff Leg Deadlift','Good Morning','Glute Kickback','Donkey Kicks',
+    'Wall Sit','Sissy Squat','Leg Press Calf Raise','Seated Calf Raise',
+    'Standing Calf Raise','Tibialis Raise','Leg Abduction','Leg Adduction',
+    'Smith Machine Squat','Smith Machine Lunge','Trap Bar Deadlift'
   ],
   Shoulders: [
     'Overhead Press (Barbell)','Overhead Press (Dumbbell)','Lateral Raises',
-    'Front Raises','Rear Delt Fly','Shrugs','Arnold Press'
+    'Front Raises','Rear Delt Fly','Shrugs','Arnold Press','Face Pull',
+    'Cable Lateral Raise','Cable Front Raise','Machine Shoulder Press',
+    'Smith Machine Overhead Press','Push Press','Behind The Neck Press',
+    'Seated Dumbbell Press','Standing Dumbbell Press','Single Arm Overhead Press',
+    'Landmine Lateral Raise','Landmine Press','Plate Front Raise',
+    'Upright Row (Barbell)','Upright Row (Dumbbell)','Upright Row (Cable)',
+    'Bent Over Lateral Raise','Incline Rear Delt Fly','Machine Lateral Raise',
+    'Machine Rear Delt Fly','Cable Rear Delt Fly','Band Pull Apart',
+    'Dumbbell Shrugs','Barbell Shrugs','Cable Shrugs','Trap Bar Shrugs'
   ],
   Core: [
-    'Plank','Hanging Leg Raise','Cable Crunch','Russian Twist'
+    'Plank','Hanging Leg Raise','Cable Crunch','Russian Twist',
+    'Ab Wheel Rollout','Hollow Body Hold','L-Sit','Dragon Flag',
+    'Bicycle Crunch','Crunch','Reverse Crunch','Decline Crunch',
+    'Weighted Crunch','Machine Crunch','Rope Crunch','V-Ups',
+    'Leg Raise','Flutter Kicks','Scissor Kicks','Mountain Climbers',
+    'Dead Bug','Bird Dog','Pallof Press','Woodchop','Landmine Twist',
+    'Side Plank','Copenhagen Plank','Suitcase Carry','Farmers Walk',
+    'Hanging Knee Raise','Toes to Bar','Windshield Wipers',
+    'Sit-ups','Decline Sit-ups','GHD Sit-ups','Back Extension'
   ]
 };
+
 
 const SPLIT_COLORS = {
   Arms: 'badge-orange',
@@ -1374,7 +1408,8 @@ function showPage(name) {
   // Close sidebar on mobile
   document.getElementById('sidebar')?.classList.remove('open');
   const ov = document.getElementById('sidebar-overlay'); if(ov) ov.style.display='none';
-  document.getElementById('page-' + name).classList.add('active');
+  const pageEl = document.getElementById('page-' + name);
+  if (pageEl) pageEl.classList.add('active');
   // Match nav item by its onclick attribute
   document.querySelectorAll('.nav-item').forEach(n => {
     const onclick = n.getAttribute('onclick') || '';
@@ -1383,15 +1418,13 @@ function showPage(name) {
   // Refresh
   if (name === 'dashboard') renderDashboard();
   if (name === 'log') initLogPage();
-  if (name === 'exercises') renderExercises();
+  if (name === 'manage') { renderExercises(); renderSplitsPage(); }
   if (name === 'history') renderHistory();
-  if (name === 'progress') renderProgressPage();
-  if (name === 'volume') renderVolumePage();
+  if (name === 'stats') { statsSetTab('body'); }
   if (name === 'achievements') renderAchievements();
   if (name === 'leaderboard') lbInit();
-  if (name === 'bodyweight') renderBodyweight();
+
   if (name === 'templates') renderTemplates();
-  if (name === 'splits') renderSplitsPage();
   // Close sidebar on mobile
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
@@ -1566,6 +1599,7 @@ let activeSplit = null;
 
 function selectSplit(split) {
   activeSplit = split;
+  const searchEl = document.getElementById('log-ex-search'); if (searchEl) searchEl.value = '';
   document.querySelectorAll('.split-tab-btn').forEach(btn => {
     const active = btn.dataset.split === split;
     btn.style.background = active ? 'rgba(232,255,71,0.12)' : 'var(--surface2)';
@@ -2370,6 +2404,23 @@ const SB_KEY = 'sb_publishable_sUccLYdinmXrPPdAIn4bPQ_8WDRou8z';
 let lbCurrentTab = 'gs';
 let lbPollInterval = null;
 
+
+function statsSetTab(tab) {
+  ['body','volume','progress'].forEach(t => {
+    const btn = document.getElementById('stats-tab-' + t);
+    const panel = document.getElementById('stats-panel-' + t);
+    if (!btn || !panel) return;
+    const active = t === tab;
+    panel.style.display = active ? 'block' : 'none';
+    btn.style.background = active ? 'rgba(232,255,71,.1)' : 'var(--surface)';
+    btn.style.borderColor = active ? 'rgba(232,255,71,.3)' : 'var(--border)';
+    btn.style.color = active ? 'var(--accent)' : 'var(--text2)';
+  });
+  if (tab === 'body') renderBodyweight();
+  if (tab === 'volume') renderVolumePage();
+  if (tab === 'progress') renderProgressPage();
+}
+
 function lbMyStats() {
   const workouts = DB.workouts;
   const totalVol = Math.round(workouts.reduce((s,w) => s + w.sets.reduce((a,b) => a + b.weight*b.reps, 0), 0));
@@ -2458,13 +2509,19 @@ async function lbRefresh() {
     console.error('lbRefresh:', e);
     lbSetStatus('offline');
     // Show error visibly on screen
-    const el = document.getElementById('lb-board-content');
-    if (el) el.innerHTML = `<div class="card" style="border-color:var(--red)">
-      <div style="font-weight:700;color:var(--red);margin-bottom:8px">Connection Error</div>
-      <div style="font-size:13px;color:var(--text2);word-break:break-all">${e.message}</div>
-    </div>`;
-    document.getElementById('lb-loading').style.display = 'none';
-    document.getElementById('lb-board-content').style.display = 'block';
+    // Only show error if leaderboard page is active
+    const lbPage = document.getElementById('page-leaderboard');
+    if (lbPage && lbPage.classList.contains('active')) {
+      const el = document.getElementById('lb-board-content');
+      if (el) el.innerHTML = `<div class="card" style="border-color:var(--red)">
+        <div style="font-weight:700;color:var(--red);margin-bottom:8px">Connection Error</div>
+        <div style="font-size:13px;color:var(--text2);word-break:break-all">${e.message}</div>
+      </div>`;
+      const loading = document.getElementById('lb-loading');
+      if (loading) loading.style.display = 'none';
+      const content = document.getElementById('lb-board-content');
+      if (content) content.style.display = 'block';
+    }
   }
 }
 
@@ -2762,7 +2819,7 @@ function renderSplitsPage() {
   const workouts = DB.workouts;
   const exercises = DB.exercises;
   const el = document.getElementById('splits-list');
-  document.getElementById('split-edit-panel').style.display = 'none';
+  const sep = document.getElementById('split-edit-panel'); if (sep) sep.style.display = 'none';
 
   if (!splits.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂️</div><div class="empty-title">No splits yet</div><div class="empty-text">Add your first split to get started</div></div>';
@@ -3440,19 +3497,65 @@ function tplAddExRow() {
     alert('No exercises found. Go to the Exercises page first to set up your library.');
     return;
   }
+  const rowId = 'tpl-row-' + Date.now();
   const row = document.createElement('div');
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 60px 60px 36px;gap:8px;margin-bottom:8px;align-items:center';
-  const opts = splits.map(s => {
+  row.id = rowId;
+  row.style.cssText = 'margin-bottom:10px';
+
+  const allOpts = splits.map(s => {
     const exs = exercises.filter(e=>e.category===s.name);
     if (!exs.length) return '';
     return `<optgroup label="${s.icon} ${s.name}">${exs.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</optgroup>`;
   }).join('');
+
   row.innerHTML = `
-    <select class="form-select" style="font-size:13px">${opts}</select>
-    <input type="number" class="form-input" placeholder="Sets" min="1" max="20" value="3" style="text-align:center">
-    <input type="number" class="form-input" placeholder="Reps" min="1" max="100" value="10" style="text-align:center">
-    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>`;
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 36px;gap:8px;margin-bottom:4px;align-items:center">
+      <input type="text" class="form-input" placeholder="🔍 Search exercise..." style="font-size:13px" oninput="tplFilterEx(this, '${rowId}')">
+      <input type="number" class="form-input" placeholder="Sets" min="1" max="20" value="3" style="text-align:center">
+      <input type="number" class="form-input" placeholder="Reps" min="1" max="100" value="10" style="text-align:center">
+      <button onclick="document.getElementById('${rowId}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
+    </div>
+    <select class="form-select" style="font-size:13px;width:100%" id="${rowId}-sel">${allOpts}</select>`;
   container.appendChild(row);
+}
+
+function tplFuzzyScore(str, query) {
+  // Returns a score — higher is better match
+  str = str.toLowerCase();
+  query = query.toLowerCase().replace(/\s+/g,'');
+  if (str.includes(query)) return 100;
+  // Check if all query chars appear in order (fuzzy)
+  let si = 0, qi = 0, score = 0;
+  while (si < str.length && qi < query.length) {
+    if (str[si] === query[qi]) { score++; qi++; }
+    si++;
+  }
+  // Bonus if starts with query
+  if (str.startsWith(query[0])) score += 5;
+  return qi === query.length ? score : 0;
+}
+
+function tplFilterEx(input, rowId) {
+  const query = input.value.trim();
+  const sel = document.getElementById(rowId + '-sel');
+  if (!sel) return;
+  const exercises = DB.exercises;
+  const splits = getSplits();
+  if (!query) {
+    sel.innerHTML = splits.map(s => {
+      const exs = exercises.filter(e=>e.category===s.name);
+      if (!exs.length) return '';
+      return `<optgroup label="${s.icon} ${s.name}">${exs.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</optgroup>`;
+    }).join('');
+  } else {
+    const scored = exercises
+      .map(e => ({ e, score: tplFuzzyScore(e.name, query) }))
+      .filter(x => x.score > 0)
+      .sort((a,b) => b.score - a.score);
+    sel.innerHTML = scored.length
+      ? scored.map(x=>`<option value="${x.e.id}">${x.e.name}</option>`).join('')
+      : '<option disabled>No results — try different spelling</option>';
+  }
 }
 
 function tplSave() {
