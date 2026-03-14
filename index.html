@@ -1090,6 +1090,53 @@
       <div style="text-align:center;margin-top:24px;font-size:10px;color:var(--text3);letter-spacing:2px;font-family:'DM Mono',monospace;opacity:0.3">DIALLED · LH</div>
     </div>
 
+
+    <!-- GUIDED WORKOUT PAGE -->
+    <div class="page" id="page-guided">
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="guided-title">Workout</div>
+          <div class="page-subtitle" id="guided-subtitle">Exercise 1 of 1</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="guidedQuit()">✕ Quit</button>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="background:var(--surface2);border-radius:4px;height:6px;margin-bottom:20px;overflow:hidden">
+        <div id="guided-progress-bar" style="height:100%;background:var(--accent);border-radius:4px;transition:width .4s ease;width:0%"></div>
+      </div>
+
+      <!-- Previous performance -->
+      <div id="guided-prev-box" style="display:none;margin-bottom:16px">
+        <div class="card" style="border-color:rgba(71,194,255,.3);background:rgba(71,194,255,.04);padding:12px 16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent3);margin-bottom:8px">Last time</div>
+          <div id="guided-prev-content"></div>
+          <div id="guided-suggestion" style="font-size:12px;color:var(--accent);font-weight:700;margin-top:6px"></div>
+        </div>
+      </div>
+
+      <!-- Current exercise -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div id="guided-ex-num" style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#000;font-family:'Bebas Neue',sans-serif;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+          <div>
+            <div id="guided-ex-name" style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:1px"></div>
+            <div id="guided-ex-target" style="font-size:12px;color:var(--text3)"></div>
+          </div>
+        </div>
+
+        <!-- Sets -->
+        <div id="guided-sets-container"></div>
+        <button class="btn btn-secondary btn-sm" onclick="guidedAddSet()" style="margin-top:8px;width:100%">+ Add Set</button>
+      </div>
+
+      <!-- Navigation -->
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" id="guided-prev-btn" onclick="guidedPrev()" style="flex:1;display:none">← Previous</button>
+        <button class="btn btn-primary" id="guided-next-btn" onclick="guidedNext()" style="flex:2;font-size:16px;padding:14px">Next Exercise →</button>
+        <button class="btn btn-primary" id="guided-finish-btn" onclick="guidedFinish()" style="flex:2;font-size:16px;padding:14px;display:none;background:var(--green);border-color:var(--green)">✓ Finish Workout</button>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1432,6 +1479,7 @@ function showPage(name) {
   if (name === 'leaderboard') lbInit();
 
   if (name === 'templates') renderTemplates();
+  if (name === 'guided') {} // handled by guidedStart
   // Close sidebar on mobile
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
@@ -1739,31 +1787,35 @@ function checkProgress() {
 function showSuggestion(prev) {
   const card = document.getElementById('suggestion-card');
   card.style.display = 'block';
+  const exId = document.getElementById('log-exercise').value;
   const maxSet = prev.sets.reduce((a,b) => b.weight > a.weight ? b : a, prev.sets[0]);
   const w = maxSet.weight;
   const r = maxSet.reps;
+  const isBodyweight = prev.sets.every(s => s.weight === 0);
+  const targetReps = r;
 
-  const opt1 = { weight: w + 2.5, reps: r };
-  const opt2 = { weight: w, reps: Math.min(r + 2, 20) };
-  const opt3 = r >= 12 ? { weight: w + 5, reps: Math.max(r - 2, 6) } : null;
+  // Get PT advice
+  const advice = getPTAdvice(exId, prev.sets.length, targetReps);
+
+  // Build action buttons based on advice
+  let actions = '';
+  if (advice.suggestedWeight !== undefined) {
+    actions += `<div style="background:var(--surface2);border:1px solid rgba(232,255,71,.3);border-radius:8px;padding:12px 16px;cursor:pointer;margin-top:8px" onclick="applySuggestion(${advice.suggestedWeight},${advice.suggestedReps||r})">
+      <div style="font-weight:600;font-size:14px;color:var(--accent)">✓ Apply suggestion — ${advice.suggestedWeight}kg × ${advice.suggestedReps||r} reps</div>
+    </div>`;
+  } else if (advice.suggestedReps !== undefined) {
+    actions += `<div style="background:var(--surface2);border:1px solid rgba(232,255,71,.3);border-radius:8px;padding:12px 16px;cursor:pointer;margin-top:8px" onclick="applySuggestion(0,${advice.suggestedReps})">
+      <div style="font-weight:600;font-size:14px;color:var(--accent)">✓ Apply suggestion — ${advice.suggestedReps} reps</div>
+    </div>`;
+  }
 
   document.getElementById('suggestion-content').innerHTML = `
-    <div style="margin-bottom:12px;font-size:13px;color:var(--text2)">Last session: <strong style="color:var(--text)">${w}kg × ${r} reps × ${prev.sets.length} sets</strong></div>
-    <div class="section-label" style="margin-bottom:10px">Try one of these:</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;cursor:pointer" onclick="applySuggestion(${opt1.weight},${opt1.reps})">
-        <div style="font-weight:600;font-size:14px;color:var(--accent)">⬆ Increase Weight</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:3px">${opt1.weight}kg × ${opt1.reps} reps</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;cursor:pointer" onclick="applySuggestion(${opt2.weight},${opt2.reps})">
-        <div style="font-weight:600;font-size:14px;color:var(--accent3)">🔁 More Reps</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:3px">${opt2.weight}kg × ${opt2.reps} reps</div>
-      </div>
-      ${opt3 ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;cursor:pointer" onclick="applySuggestion(${opt3.weight},${opt3.reps})">
-        <div style="font-weight:600;font-size:14px;color:var(--accent2)">🚀 Big Jump</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:3px">${opt3.weight}kg × ${opt3.reps} reps</div>
-      </div>` : ''}
+    <div style="margin-bottom:12px;font-size:13px;color:var(--text2)">Last session: <strong style="color:var(--text)">${isBodyweight ? prev.sets.map(s=>s.reps+' reps').join(' · ') : w+'kg × '+r+' reps × '+prev.sets.length+' sets'}</strong></div>
+    <div style="background:rgba(232,255,71,.06);border:1px solid rgba(232,255,71,.2);border-radius:8px;padding:12px 14px">
+      <div style="font-size:14px;font-weight:700;color:var(--accent)">${advice.emoji} ${advice.headline}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${advice.detail}</div>
     </div>
+    ${actions}
   `;
 }
 
@@ -2394,6 +2446,314 @@ function quickLogEx(exId){
 
 
 
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PT-STYLE PROGRESSIVE OVERLOAD ENGINE
+// ═══════════════════════════════════════════════════════════════════
+function getPTAdvice(exerciseId, targetSets, targetReps) {
+  const workouts = DB.workouts.filter(w => w.exerciseId === exerciseId)
+    .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  if (!workouts.length) {
+    return { headline: "First time? Start light", detail: "Pick a comfortable weight and focus on form. You can always go heavier next time.", emoji: "🎯", type: "first" };
+  }
+
+  const last = workouts[0];
+  const isBodyweight = last.sets.every(s => s.weight === 0);
+  const maxWeight = Math.max(...last.sets.map(s => s.weight));
+  const totalReps = last.sets.reduce((s, x) => s + x.reps, 0);
+  const avgReps = Math.round(totalReps / last.sets.length);
+  const allSets = last.sets.length;
+
+  // Look at last 3 sessions for trend
+  const recent = workouts.slice(0, 3);
+  const recentMaxWeights = recent.map(w => Math.max(...w.sets.map(s => s.weight)));
+  const isProgressing = recentMaxWeights.length >= 2 && recentMaxWeights[0] > recentMaxWeights[1];
+  const isStalling = recentMaxWeights.length >= 3 &&
+    recentMaxWeights[0] === recentMaxWeights[1] &&
+    recentMaxWeights[1] === recentMaxWeights[2];
+
+  // Bodyweight exercise logic
+  if (isBodyweight) {
+    if (avgReps >= targetReps + 3) {
+      return {
+        headline: `Hit ${avgReps} reps last time — go for ${targetReps + 2} today`,
+        detail: `You're well above target. Push for ${targetReps + 2} reps per set or add a resistance band for extra challenge.`,
+        emoji: "🚀", type: "increase_reps",
+        suggestedReps: targetReps + 2
+      };
+    } else if (avgReps >= targetReps) {
+      return {
+        headline: `Solid ${avgReps} reps last time — match it today`,
+        detail: `You hit your target. Stay at ${targetReps} reps and focus on controlled, full range of motion.`,
+        emoji: "✅", type: "maintain",
+        suggestedReps: targetReps
+      };
+    } else {
+      return {
+        headline: `${avgReps} reps last time — aim for ${Math.min(avgReps + 1, targetReps)} today`,
+        detail: `You're building up. Add 1 rep per set this session. Don't rush — quality over quantity.`,
+        emoji: "📈", type: "build_reps",
+        suggestedReps: Math.min(avgReps + 1, targetReps)
+      };
+    }
+  }
+
+  // Weighted exercise logic
+  if (isStalling) {
+    // Been at same weight 3+ sessions — time to deload or change rep range
+    return {
+      headline: `Stuck at ${maxWeight}kg for 3 sessions`,
+      detail: `Time to break through. Try doing ${targetReps - 2} reps with ${maxWeight + 2.5}kg — shorter range, heavier load. Or deload to ${maxWeight - 5}kg for a week and come back stronger.`,
+      emoji: "⚠️", type: "plateau",
+      suggestedWeight: maxWeight + 2.5,
+      suggestedReps: targetReps - 2
+    };
+  }
+
+  if (avgReps >= targetReps + 3) {
+    // Smashing reps — big jump
+    return {
+      headline: `${avgReps} reps at ${maxWeight}kg — you're ready for a big jump`,
+      detail: `You destroyed your target. Add ${maxWeight <= 60 ? 5 : 2.5}kg and aim for ${targetReps} clean reps.`,
+      emoji: "🔥", type: "big_jump",
+      suggestedWeight: maxWeight + (maxWeight <= 60 ? 5 : 2.5),
+      suggestedReps: targetReps
+    };
+  }
+
+  if (avgReps >= targetReps + 1) {
+    // Slightly above target — small increase
+    return {
+      headline: `${avgReps} reps at ${maxWeight}kg — go to ${maxWeight + 2.5}kg`,
+      detail: `You hit above target. Add 2.5kg and keep the same rep range. Small plates add up.`,
+      emoji: "💪", type: "increase",
+      suggestedWeight: maxWeight + 2.5,
+      suggestedReps: targetReps
+    };
+  }
+
+  if (avgReps >= targetReps) {
+    // Hit target exactly — increase
+    if (isProgressing) {
+      return {
+        headline: `${maxWeight}kg hit — keep the momentum going`,
+        detail: `You've progressed the last 2 sessions. Add 2.5kg today and ride the wave.`,
+        emoji: "📈", type: "increase",
+        suggestedWeight: maxWeight + 2.5,
+        suggestedReps: targetReps
+      };
+    }
+    return {
+      headline: `Hit ${targetReps} reps at ${maxWeight}kg — add 2.5kg today`,
+      detail: `You hit your target last time. Time to go heavier. Keep the same reps.`,
+      emoji: "⬆️", type: "increase",
+      suggestedWeight: maxWeight + 2.5,
+      suggestedReps: targetReps
+    };
+  }
+
+  if (avgReps >= targetReps - 2) {
+    // Close to target — stay same weight
+    return {
+      headline: `${avgReps}/${targetReps} reps at ${maxWeight}kg — same weight today`,
+      detail: `You're close but not quite there. Stay at ${maxWeight}kg and really focus on hitting ${targetReps} clean reps this session.`,
+      emoji: "🎯", type: "maintain",
+      suggestedWeight: maxWeight,
+      suggestedReps: targetReps
+    };
+  }
+
+  // Struggling — drop weight slightly
+  return {
+    headline: `Only ${avgReps} reps last time — drop to ${maxWeight - 2.5}kg`,
+    detail: `You're struggling with the current weight. Drop to ${maxWeight - 2.5}kg and nail your ${targetReps} reps with perfect form first.`,
+    emoji: "📉", type: "decrease",
+    suggestedWeight: Math.max(maxWeight - 2.5, 0),
+    suggestedReps: targetReps
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GUIDED WORKOUT MODE
+// ═══════════════════════════════════════════════════════════════════
+let _guidedTpl = null;
+let _guidedIdx = 0;
+let _guidedSets = {}; // exerciseIndex -> [{weight, reps}]
+let _guidedStartTime = null;
+
+function guidedStart(tplId) {
+  const tpl = DB.templates.find(t => t.id === tplId);
+  if (!tpl || !tpl.exercises.length) return;
+  _guidedTpl = tpl;
+  _guidedIdx = 0;
+  _guidedSets = {};
+  _guidedStartTime = new Date();
+  showPage('guided');
+  guidedRender();
+}
+
+function guidedRender() {
+  const tpl = _guidedTpl;
+  const idx = _guidedIdx;
+  const te = tpl.exercises[idx];
+  const ex = DB.exercises.find(e => e.id === te.exerciseId);
+  const total = tpl.exercises.length;
+
+  // Header
+  document.getElementById('guided-title').textContent = tpl.name;
+  document.getElementById('guided-subtitle').textContent = `Exercise ${idx+1} of ${total}`;
+  document.getElementById('guided-progress-bar').style.width = ((idx / total) * 100) + '%';
+
+  // Exercise info
+  document.getElementById('guided-ex-num').textContent = idx + 1;
+  document.getElementById('guided-ex-name').textContent = ex ? ex.name : 'Unknown';
+  document.getElementById('guided-ex-target').textContent = `${te.sets} sets × ${te.reps} reps target`;
+
+  // Previous performance
+  const prevBox = document.getElementById('guided-prev-box');
+  const prevContent = document.getElementById('guided-prev-content');
+  const suggestion = document.getElementById('guided-suggestion');
+  const prevWorkouts = DB.workouts.filter(w => w.exerciseId === te.exerciseId).sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  if (prevWorkouts.length > 0) {
+    const last = prevWorkouts[0];
+    const setStr = last.sets.map(s => s.weight > 0 ? `${s.weight}kg × ${s.reps}` : `${s.reps} reps`).join(' · ');
+    prevContent.innerHTML = `<div style="font-size:13px;color:var(--text)">${setStr}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${formatDate(last.date)}</div>`;
+    
+    // PT-style advice
+    const advice = getPTAdvice(te.exerciseId, te.sets, te.reps);
+    suggestion.innerHTML = `<div style="font-size:14px;font-weight:700;color:var(--accent)">${advice.emoji} ${advice.headline}</div><div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${advice.detail}</div>`;
+    prevBox.style.display = 'block';
+  } else {
+    // First time doing this exercise
+    const advice = getPTAdvice(te.exerciseId, te.sets, te.reps);
+    suggestion.innerHTML = `<div style="font-size:14px;font-weight:700;color:var(--accent)">${advice.emoji} ${advice.headline}</div><div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${advice.detail}</div>`;
+    prevContent.innerHTML = '<div style="font-size:13px;color:var(--text3)">No previous sessions</div>';
+    prevBox.style.display = 'block';
+  }
+
+  // Sets — restore if already filled in
+  const container = document.getElementById('guided-sets-container');
+  container.innerHTML = '';
+  const savedSets = _guidedSets[idx] || [];
+  const setsToShow = Math.max(te.sets, savedSets.length || 0);
+  for (let i = 0; i < setsToShow; i++) {
+    const w = savedSets[i]?.weight ?? '';
+    const r = savedSets[i]?.reps ?? te.reps;
+    guidedAddSetRow(i + 1, w, r);
+  }
+
+  // Nav buttons
+  document.getElementById('guided-prev-btn').style.display = idx > 0 ? 'flex' : 'none';
+  document.getElementById('guided-next-btn').style.display = idx < total - 1 ? 'flex' : 'none';
+  document.getElementById('guided-finish-btn').style.display = idx === total - 1 ? 'flex' : 'none';
+
+  haptic('light');
+}
+
+function guidedAddSetRow(num, weight, reps) {
+  const container = document.getElementById('guided-sets-container');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:32px 1fr 1fr 36px;gap:8px;align-items:center;margin-bottom:8px';
+  div.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);text-align:center">${num}</div>
+    <input type="number" class="form-input guided-weight" placeholder="kg (optional)" value="${weight}" min="0" step="0.5">
+    <input type="number" class="form-input guided-reps" placeholder="Reps" value="${reps}" min="0" step="1">
+    <button onclick="this.parentElement.remove();guidedRenumber()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
+  container.appendChild(div);
+}
+
+function guidedAddSet() {
+  const rows = document.querySelectorAll('#guided-sets-container > div');
+  guidedAddSetRow(rows.length + 1, '', '');
+}
+
+function guidedRenumber() {
+  document.querySelectorAll('#guided-sets-container > div').forEach((row, i) => {
+    const num = row.querySelector('div');
+    if (num) num.textContent = i + 1;
+  });
+}
+
+function guidedSaveCurrent() {
+  const rows = document.querySelectorAll('#guided-sets-container > div');
+  _guidedSets[_guidedIdx] = [...rows].map(row => {
+    const wVal = row.querySelector('.guided-weight').value;
+    return {
+      weight: wVal === '' ? 0 : (parseFloat(wVal) || 0),
+      reps: parseInt(row.querySelector('.guided-reps').value) || 0
+    };
+  }).filter(s => s.reps > 0);
+}
+
+function guidedNext() {
+  guidedSaveCurrent();
+  _guidedIdx++;
+  guidedRender();
+  window.scrollTo(0, 0);
+}
+
+function guidedPrev() {
+  guidedSaveCurrent();
+  _guidedIdx--;
+  guidedRender();
+  window.scrollTo(0, 0);
+}
+
+function guidedFinish() {
+  guidedSaveCurrent();
+  const tpl = _guidedTpl;
+  const exercises = DB.exercises;
+  const today = new Date().toISOString().slice(0, 10);
+  let saved = 0;
+
+  tpl.exercises.forEach((te, i) => {
+    const sets = _guidedSets[i] || [];
+    if (!sets.length) return;
+    const workout = {
+      id: uid(),
+      exerciseId: te.exerciseId,
+      date: today,
+      sets,
+      note: `${tpl.name} — guided workout`
+    };
+    const workouts = DB.workouts;
+    workouts.push(workout);
+    DB.workouts = workouts;
+    saved++;
+  });
+
+  if (saved === 0) {
+    if (!confirm('No sets logged — quit anyway?')) return;
+  }
+
+  // Update progress bar to 100%
+  document.getElementById('guided-progress-bar').style.width = '100%';
+
+  checkAchievements();
+  updateAchievementNavBadge();
+  haptic('success');
+
+  // Show completion message then go to dashboard
+  const subtitle = document.getElementById('guided-subtitle');
+  subtitle.textContent = `${saved} exercise${saved!==1?'s':''} saved 🎉`;
+  document.getElementById('guided-finish-btn').textContent = '✓ Done!';
+  document.getElementById('guided-finish-btn').disabled = true;
+
+  setTimeout(() => {
+    _guidedTpl = null;
+    showPage('dashboard');
+  }, 1500);
+}
+
+function guidedQuit() {
+  if (!confirm('Quit this workout? Your progress so far will be lost.')) return;
+  _guidedTpl = null;
+  showPage('templates');
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // LEADERBOARD — Supabase live backend
@@ -3843,26 +4203,80 @@ function tplLoad(id) {
   if (!tpl) return;
   haptic('medium');
   showPage('log');
-  // We'll queue up exercises one by one as a session — load first exercise
   if (!tpl.exercises.length) return;
-  const first = tpl.exercises[0];
-  const ex = DB.exercises.find(e=>e.id===first.exerciseId);
-  if (!ex) return;
+
   setTimeout(() => {
-    selectSplit(ex.category);
-    setTimeout(() => {
-      selectExercise(first.exerciseId);
-      // Pre-fill sets
-      document.getElementById('sets-container').innerHTML = '';
-      for (let i=0;i<first.sets;i++) addSetRow('', first.reps);
-      // Store remaining for reference
-      window._tplQueue = tpl.exercises.slice(1);
-      window._tplName = tpl.name;
-      if (tpl.exercises.length > 1) {
-        document.getElementById('log-notes').value = `Template: ${tpl.name} (${tpl.exercises.length} exercises)`;
-      }
-    }, 100);
+    // Load first exercise into the log form
+    const first = tpl.exercises[0];
+    const ex = DB.exercises.find(e=>e.id===first.exerciseId);
+    if (ex) {
+      selectSplit(ex.category);
+      setTimeout(() => {
+        selectExercise(first.exerciseId);
+        document.getElementById('sets-container').innerHTML = '';
+        for (let i=0;i<first.sets;i++) addSetRow('', first.reps);
+      }, 100);
+    }
+
+    // Show the full template plan above the log form
+    const exercises = DB.exercises;
+    const planItems = tpl.exercises.map((te, i) => {
+      const e = exercises.find(ex=>ex.id===te.exerciseId);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="tplLoadExercise('${id}',${i})" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
+        <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'var(--accent)':'var(--surface3)'};color:${i===0?'#000':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${e?e.name:'Unknown'}</div>
+          <div style="font-size:11px;color:var(--text3)">${te.sets} sets × ${te.reps} reps</div>
+        </div>
+        <div style="font-size:11px;color:var(--accent2)">Tap to load</div>
+      </div>`;
+    }).join('');
+
+    // Insert plan above the log card
+    const logCard = document.querySelector('#page-log .card');
+    if (logCard) {
+      const existing = document.getElementById('tpl-plan-card');
+      if (existing) existing.remove();
+      const planCard = document.createElement('div');
+      planCard.id = 'tpl-plan-card';
+      planCard.className = 'card';
+      planCard.style.marginBottom = '16px';
+      planCard.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-title" style="margin-bottom:0">📋 ${tpl.name}</div>
+          <button onclick="document.getElementById('tpl-plan-card').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Tap any exercise to load it into the log form</div>
+        ${planItems}`;
+      logCard.parentNode.insertBefore(planCard, logCard);
+    }
   }, 150);
+}
+
+function tplLoadExercise(tplId, exerciseIndex) {
+  const tpl = DB.templates.find(t=>t.id===tplId);
+  if (!tpl) return;
+  const te = tpl.exercises[exerciseIndex];
+  if (!te) return;
+  const ex = DB.exercises.find(e=>e.id===te.exerciseId);
+  if (!ex) return;
+
+  // Update the number indicators
+  document.querySelectorAll('#tpl-plan-card > div > div').forEach((row, i) => {
+    const circle = row.querySelector('div');
+    if (circle) {
+      circle.style.background = i === exerciseIndex ? 'var(--accent)' : 'var(--surface3)';
+      circle.style.color = i === exerciseIndex ? '#000' : 'var(--text2)';
+    }
+  });
+
+  selectSplit(ex.category);
+  setTimeout(() => {
+    selectExercise(te.exerciseId);
+    document.getElementById('sets-container').innerHTML = '';
+    for (let i=0;i<te.sets;i++) addSetRow('', te.reps);
+    haptic('light');
+  }, 100);
 }
 
 function tplDelete(id) {
