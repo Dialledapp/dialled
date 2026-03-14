@@ -1060,6 +1060,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Exercises</label>
+            <input type="text" class="form-input" id="tpl-ex-search" placeholder="🔍 Filter exercises..." style="margin-bottom:8px;font-size:13px" oninput="tplFilterAllRows(this.value)">
             <div id="tpl-exercises-list" style="margin-bottom:8px"></div>
             <button class="btn btn-secondary btn-sm" onclick="tplAddExRow()">+ Add Exercise</button>
           </div>
@@ -1387,12 +1388,19 @@ function seedDefaults() {
   if (!DB.splits) {
     DB.splits = DEFAULT_SPLITS.map(s => ({ ...s, id: 'split_' + s.name.toLowerCase() }));
   }
-  if (DB.exercises.length === 0) {
-    const exercises = [];
-    Object.entries(EXERCISE_LIBRARY).forEach(([split, names]) => {
-      names.forEach(name => exercises.push({ id: uid(), name, category: split }));
+  // Seed exercises — always add any missing library exercises
+  const existing = DB.exercises;
+  const existingNames = new Set(existing.map(e => e.name.toLowerCase()));
+  const toAdd = [];
+  Object.entries(EXERCISE_LIBRARY).forEach(([split, names]) => {
+    names.forEach(name => {
+      if (!existingNames.has(name.toLowerCase())) {
+        toAdd.push({ id: uid(), name, category: split });
+      }
     });
-    DB.exercises = exercises;
+  });
+  if (toAdd.length > 0) {
+    DB.exercises = [...existing, ...toAdd];
   }
 }
 
@@ -1777,7 +1785,7 @@ function saveWorkout() {
   const setRows = document.querySelectorAll('#sets-container > div');
   const sets = [];
   setRows.forEach(row => {
-    const w = parseFloat(row.querySelector('.set-weight').value);
+    const w = parseFloat(row.querySelector('.set-weight').value) || 0;
     const r = parseInt(row.querySelector('.set-reps').value);
     if (w > 0 && r > 0) sets.push({ weight: w, reps: r });
   });
@@ -3700,14 +3708,37 @@ function tplAddExRow() {
   }).join('');
 
   row.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 60px 60px 36px;gap:8px;margin-bottom:4px;align-items:center">
-      <input type="text" class="form-input" placeholder="🔍 Search exercise..." style="font-size:13px" oninput="tplFilterEx(this, '${rowId}')">
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 36px;gap:8px;align-items:center">
+      <select class="form-select" style="font-size:13px" id="${rowId}-sel">${allOpts}</select>
       <input type="number" class="form-input" placeholder="Sets" min="1" max="20" value="3" style="text-align:center">
       <input type="number" class="form-input" placeholder="Reps" min="1" max="100" value="10" style="text-align:center">
       <button onclick="document.getElementById('${rowId}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>
-    <select class="form-select" style="font-size:13px;width:100%" id="${rowId}-sel">${allOpts}</select>`;
+    </div>`;
   container.appendChild(row);
+}
+
+
+function tplFilterAllRows(query) {
+  query = query.trim().toLowerCase();
+  const exercises = DB.exercises;
+  const splits = getSplits();
+  document.querySelectorAll('#tpl-exercises-list select').forEach(sel => {
+    if (!query) {
+      sel.innerHTML = splits.map(s => {
+        const exs = exercises.filter(e=>e.category===s.name);
+        if (!exs.length) return '';
+        return `<optgroup label="${s.icon} ${s.name}">${exs.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</optgroup>`;
+      }).join('');
+    } else {
+      const scored = exercises
+        .map(e => ({ e, score: tplFuzzyScore(e.name, query) }))
+        .filter(x => x.score > 0)
+        .sort((a,b) => b.score - a.score);
+      sel.innerHTML = scored.length
+        ? scored.map(x=>`<option value="${x.e.id}">${x.e.name}</option>`).join('')
+        : '<option disabled>No results</option>';
+    }
+  });
 }
 
 function tplFuzzyScore(str, query) {
