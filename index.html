@@ -365,11 +365,33 @@
   .chart-container { position: relative; height: 220px; }
 
   /* PAGE TRANSITIONS */
-  .page { display: none; }
-  .page.active { display: block; animation: fadeIn 0.2s ease; }
+  /* Page transitions — use visibility+opacity so the element stays in flow
+     and the browser can start painting before JS renders the content */
+  .page {
+    display: none;
+    opacity: 0;
+  }
+  .page.active {
+    display: block;
+    animation: fadeIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
 
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
   @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* Smoother button interactions — GPU-accelerated */
+  .btn { will-change: transform; }
+  .btn-primary:active { transform: translateY(1px) scale(0.98); }
+  .btn-secondary:active { transform: translateY(1px) scale(0.98); }
+
+  /* Prevent layout thrash on nav-item hover */
+  .nav-item { will-change: background-color; }
+
+  /* Smooth scroll on mobile */
+  .main { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
 
   /* EMPTY STATE */
   .empty-state {
@@ -759,7 +781,7 @@
             </div>
             <div class="form-group" id="exercise-picker-group" style="display:none">
               <label class="form-label">Exercise</label>
-              <input type="text" class="form-input" id="log-ex-search" placeholder="🔍 Search exercises..." style="margin-bottom:8px;font-size:13px" oninput="logFilterExercises(this.value)">
+              <input type="text" class="form-input" id="log-ex-search" placeholder="🔍 Search exercises..." style="margin-bottom:8px;font-size:13px" oninput="_debouncedLogFilter(this.value)">
               <div id="exercise-picker-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:220px;overflow-y:auto;padding-right:4px"></div>
               <input type="hidden" id="log-exercise">
               <div id="selected-exercise-display" style="display:none;margin-top:10px;padding:10px 14px;background:var(--surface3);border:1px solid var(--accent);border-radius:8px;font-weight:600;font-size:14px;color:var(--accent)"></div>
@@ -804,7 +826,7 @@
               <textarea class="form-textarea" id="log-notes" placeholder="e.g. Felt strong today, slight form breakdown on last set..."></textarea>
             </div>
             <hr class="divider">
-            <div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="saveWorkout()">💾 Save Workout</button><button class="btn btn-secondary" onclick="tplSaveCurrentAsTemplate()" title="Save as template">📋</button></div>
+            <div style="display:flex;gap:8px"><button class="btn btn-primary" id="save-workout-btn" style="flex:1" onclick="saveWorkout()">💾 Save Workout</button><button class="btn btn-secondary" onclick="tplSaveCurrentAsTemplate()" title="Save as template">📋</button></div>
           </div>
         </div>
 
@@ -835,7 +857,7 @@
       <!-- Exercises section -->
       <div class="card-title" style="font-size:16px;margin-bottom:16px">🏋️ Exercises</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <input type="text" class="form-input" id="exercise-search" placeholder="🔍 Search exercises..." style="flex:1;font-size:13px" oninput="renderExercises()">
+        <input type="text" class="form-input" id="exercise-search" placeholder="🔍 Search exercises..." style="flex:1;font-size:13px" oninput="_debouncedRenderExercises()">
         <button class="btn btn-primary btn-sm" onclick="openExerciseModal()">+ Add Exercise</button>
       </div>
       <div id="ex-split-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px"></div>
@@ -1265,21 +1287,35 @@
 <script>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DATA LAYER — localStorage persistence
+// DATA LAYER — in-memory cache with localStorage write-through
+// Reads parse JSON once; writes update cache + persist immediately.
 // ─────────────────────────────────────────────────────────────────────────────
+const _cache = {};
+function _load(key, fallback) {
+  if (_cache[key] === undefined) {
+    try { _cache[key] = JSON.parse(localStorage.getItem(key) || fallback); }
+    catch(e) { _cache[key] = JSON.parse(fallback); }
+  }
+  return _cache[key];
+}
+function _save(key, v) {
+  _cache[key] = v;
+  try { localStorage.setItem(key, JSON.stringify(v)); } catch(e) {}
+}
+
 const DB = {
-  get exercises() { return JSON.parse(localStorage.getItem('il_exercises') || '[]'); },
-  set exercises(v) { localStorage.setItem('il_exercises', JSON.stringify(v)); },
-  get workouts() { return JSON.parse(localStorage.getItem('il_workouts') || '[]'); },
-  set workouts(v) { localStorage.setItem('il_workouts', JSON.stringify(v)); },
-  get unlockedAchievements() { return JSON.parse(localStorage.getItem('il_achievements') || '[]'); },
-  set unlockedAchievements(v) { localStorage.setItem('il_achievements', JSON.stringify(v)); },
-  get splits() { return JSON.parse(localStorage.getItem('il_splits') || 'null'); },
-  set splits(v) { localStorage.setItem('il_splits', JSON.stringify(v)); },
-  get bodyweight() { return JSON.parse(localStorage.getItem('il_bodyweight') || '[]'); },
-  set bodyweight(v) { localStorage.setItem('il_bodyweight', JSON.stringify(v)); },
-  get templates() { return JSON.parse(localStorage.getItem('il_templates') || '[]'); },
-  set templates(v) { localStorage.setItem('il_templates', JSON.stringify(v)); },
+  get exercises()            { return _load('il_exercises', '[]'); },
+  set exercises(v)           { _save('il_exercises', v); },
+  get workouts()             { return _load('il_workouts', '[]'); },
+  set workouts(v)            { _save('il_workouts', v); },
+  get unlockedAchievements() { return _load('il_achievements', '[]'); },
+  set unlockedAchievements(v){ _save('il_achievements', v); },
+  get splits()               { return _load('il_splits', 'null'); },
+  set splits(v)              { _save('il_splits', v); },
+  get bodyweight()           { return _load('il_bodyweight', '[]'); },
+  set bodyweight(v)          { _save('il_bodyweight', v); },
+  get templates()            { return _load('il_templates', '[]'); },
+  set templates(v)           { _save('il_templates', v); },
   exportAll() {
     const data = {
       exercises: this.exercises, workouts: this.workouts, splits: this.splits,
@@ -1295,22 +1331,61 @@ const DB = {
   importAll(json) {
     try {
       const d = JSON.parse(json);
-      if (d.exercises)    this.exercises = d.exercises;
-      if (d.workouts)     this.workouts  = d.workouts;
-      if (d.splits)       this.splits    = d.splits;
-      if (d.achievements) this.unlockedAchievements = d.achievements;
-      if (d.bodyweight)   this.bodyweight = d.bodyweight;
-      if (d.templates)    this.templates  = d.templates;
+      if (d.exercises)    { _save('il_exercises',    d.exercises); }
+      if (d.workouts)     { _save('il_workouts',     d.workouts); }
+      if (d.splits)       { _save('il_splits',       d.splits); }
+      if (d.achievements) { _save('il_achievements', d.achievements); }
+      if (d.bodyweight)   { _save('il_bodyweight',   d.bodyweight); }
+      if (d.templates)    { _save('il_templates',    d.templates); }
       return true;
     } catch(e) { return false; }
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS — debounce & paint scheduler
+// ─────────────────────────────────────────────────────────────────────────────
+function debounce(fn, ms) {
+  let t;
+  return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
+}
+
+// Run fn after the browser has painted the current frame (keeps transitions smooth)
+function afterPaint(fn) { requestAnimationFrame(() => requestAnimationFrame(fn)); }
+
+// Deduplicate populateSplitSelects — only runs once per microtask batch
+let _splitSelectPending = false;
+function scheduleSplitSelects() {
+  if (_splitSelectPending) return;
+  _splitSelectPending = true;
+  Promise.resolve().then(() => { _splitSelectPending = false; populateSplitSelects(); });
+}
+
+// Pre-built debounced versions of hot path functions (defined after their targets)
+// These are assigned lazily so the underlying functions exist by the time they're called.
+let _debouncedCheckProgress, _debouncedLogFilter, _debouncedRenderExercises;
+function _initDebounced() {
+  _debouncedCheckProgress  = debounce(checkProgress, 180);
+  _debouncedLogFilter      = debounce(logFilterExercises, 200);
+  _debouncedRenderExercises = debounce(renderExercises, 200);
+}
 
 
+
+// Chart registry — tracks every Chart.js instance by canvas id.
+// makeChart() auto-destroys any existing chart on that canvas before creating a new one,
+// preventing the "Canvas is already in use" warning and stale instance memory leaks.
+const _chartRegistry = {};
 function makeChart(ctx, config) {
   if (typeof Chart === 'undefined') return { destroy: function(){} };
-  return new Chart(ctx, config);
+  const id = ctx.canvas ? ctx.canvas.id : null;
+  if (id && _chartRegistry[id]) {
+    try { _chartRegistry[id].destroy(); } catch(e) {}
+    delete _chartRegistry[id];
+  }
+  const chart = new Chart(ctx, config);
+  if (id) _chartRegistry[id] = chart;
+  return chart;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1499,33 +1574,31 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAVIGATION
 // ─────────────────────────────────────────────────────────────────────────────
 function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  // Close sidebar on mobile
-  document.getElementById('sidebar')?.classList.remove('open');
-  const ov = document.getElementById('sidebar-overlay'); if(ov) ov.style.display='none';
-  const pageEl = document.getElementById('page-' + name);
-  if (pageEl) pageEl.classList.add('active');
-  // Match nav item by its onclick attribute
+  // Update nav + show page shell immediately so the transition fires right away
   document.querySelectorAll('.nav-item').forEach(n => {
     const onclick = n.getAttribute('onclick') || '';
-    if (onclick.includes("'" + name + "'")) n.classList.add('active');
+    n.classList.toggle('active', onclick.includes("'" + name + "'"));
   });
-  // Refresh
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'log') initLogPage();
-  if (name === 'manage') { renderExercises(); renderSplitsPage(); }
-  if (name === 'history') renderHistory();
-  if (name === 'stats') { statsSetTab('body'); }
-  if (name === 'guided') {} // handled by guidedStart
-  if (name === 'achievements') renderAchievements();
-  if (name === 'leaderboard') lbInit();
-
-  if (name === 'templates') renderTemplates();
-  if (name === 'guided') {} // handled by guidedStart
-  if (name === 'aipt') aiptRenderMessages();
-  // Close sidebar on mobile
+  document.getElementById('sidebar')?.classList.remove('open');
+  const ov = document.getElementById('sidebar-overlay'); if(ov) ov.style.display='none';
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + name);
+  if (pageEl) pageEl.classList.add('active');
+
+  // Defer heavy DOM work until after the browser has painted the page transition
+  afterPaint(() => {
+    if (name === 'dashboard')    renderDashboard();
+    if (name === 'log')          initLogPage();
+    if (name === 'manage')       { renderExercises(); renderSplitsPage(); }
+    if (name === 'history')      renderHistory();
+    if (name === 'stats')        statsSetTab('body');
+    if (name === 'achievements') renderAchievements();
+    if (name === 'leaderboard')  lbInit();
+    if (name === 'templates')    renderTemplates();
+    if (name === 'aipt')         aiptRenderMessages();
+  });
 }
 
 function toggleSidebar() {
@@ -1548,7 +1621,7 @@ function toggleSidebar() {
 let dashChart = null;
 
 function renderDashboard() {
-  populateSplitSelects();
+  scheduleSplitSelects();
   renderDeloadBanner();
   const workouts = DB.workouts;
   const exercises = DB.exercises;
@@ -1729,6 +1802,28 @@ function selectSplit(split) {
     </button>`).join('');
 }
 
+// Filter the exercise picker grid by search query (used in Log Workout search box)
+function logFilterExercises(query) {
+  if (!activeSplit) return;
+  const exercises = DB.exercises.filter(e => e.category === activeSplit);
+  const grid = document.getElementById('exercise-picker-grid');
+  const currentId = document.getElementById('log-exercise').value;
+  const q = (query || '').trim().toLowerCase();
+  const filtered = q
+    ? exercises.filter(e => tplFuzzyScore(e.name, q) > 0)
+      .sort((a, b) => tplFuzzyScore(b.name, q) - tplFuzzyScore(a.name, q))
+    : exercises;
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text2);font-size:13px;padding:12px 0">No exercises match "${query}"</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(e =>
+    `<button onclick="selectExercise('${e.id}')" data-exid="${e.id}"
+      style="text-align:left;padding:10px 12px;border-radius:8px;border:1px solid ${e.id === currentId ? 'var(--accent)' : 'var(--border)'};background:${e.id === currentId ? 'rgba(232,255,71,0.1)' : 'var(--surface2)'};color:${e.id === currentId ? 'var(--accent)' : 'var(--text)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;transition:all 0.15s;line-height:1.3">
+      ${e.name}
+    </button>`).join('');
+}
+
 function selectExercise(exId) {
   document.getElementById('log-exercise').value = exId;
   const ex = DB.exercises.find(e => e.id === exId);
@@ -1759,8 +1854,8 @@ function addSetRow(weight='', reps='') {
   div.style.cssText = 'display:grid;grid-template-columns:40px 1fr 1fr 36px;gap:8px;align-items:center;margin-bottom:8px';
   div.innerHTML = `
     <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);text-align:center">${idx}</div>
-    <input type="number" class="form-input set-weight" placeholder="Weight kg" value="${weight}" min="0" step="0.5" oninput="checkProgress()">
-    <input type="number" class="form-input set-reps" placeholder="Reps" value="${reps}" min="0" step="1" oninput="checkProgress()">
+    <input type="number" class="form-input set-weight" placeholder="Weight kg" value="${weight}" min="0" step="0.5" oninput="_debouncedCheckProgress()">
+    <input type="number" class="form-input set-reps" placeholder="Reps" value="${reps}" min="0" step="1" oninput="_debouncedCheckProgress()">
     <button onclick="this.parentElement.remove();renumberSets()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px">✕</button>
   `;
   container.appendChild(div);
@@ -1875,6 +1970,11 @@ function applySuggestion(weight, reps) {
 }
 
 function saveWorkout() {
+  const btn = document.getElementById('save-workout-btn');
+
+  // Prevent double-saves — if already saving, bail out immediately
+  if (btn && btn.disabled) return;
+
   const exId = document.getElementById('log-exercise').value;
   const date = document.getElementById('log-date').value;
   if (!exId) return alert('Please select an exercise');
@@ -1889,19 +1989,23 @@ function saveWorkout() {
   });
 
   if (sets.length === 0) return alert('Please add at least one set with reps');
+
+  // Disable button immediately to block any further taps
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '\u2713 Saved!';
+    btn.style.background = 'var(--green)';
+    btn.style.opacity = '0.85';
+    btn.style.cursor = 'default';
+  }
+
   const note = (document.getElementById('log-notes') ? document.getElementById('log-notes').value : '').trim();
   const workouts = DB.workouts;
   workouts.push({ id: uid(), exerciseId: exId, date, sets, note: note||'' });
   haptic('medium');
   DB.workouts = workouts;
   setTimeout(() => checkAchievements(), 50);
-  if (LB.username && LB.boardId) { setTimeout(lbPushStats, 500); }
-
-  // Show success briefly then reset
-  const btn = document.querySelector('#page-log .btn-primary');
-  btn.textContent = '✓ Saved!';
-  btn.style.background = 'var(--green)';
-  setTimeout(() => { btn.textContent = '💾 Save Workout'; btn.style.background = ''; }, 1500);
+  if (LB.username && LB.boardId) { setTimeout(lbPush, 500); }
 
   initLogPage();
   document.getElementById('log-exercise').value = exId;
@@ -1952,7 +2056,7 @@ function renderLogChart(exId) {
 // ─────────────────────────────────────────────────────────────────────────────
 function openExerciseModal() {
   document.getElementById('new-exercise-name').value = '';
-  populateSplitSelects();
+  scheduleSplitSelects();
   document.getElementById('exercise-modal').classList.add('open');
   setTimeout(() => document.getElementById('new-exercise-name').focus(), 100);
 }
@@ -1969,7 +2073,7 @@ function saveExercise() {
   closeExerciseModal();
   renderExercises();
   renderSplitTabs(); // refresh log page split tabs
-  populateSplitSelects(); // refresh all dropdowns
+  scheduleSplitSelects(); // refresh all dropdowns
   haptic('success');
 }
 
@@ -2176,7 +2280,7 @@ let progressCharts = [];
 
 function renderProgressPage() {
   seedDefaults();
-  populateSplitSelects();
+  scheduleSplitSelects();
   const sel = document.getElementById('progress-exercise-select');
   const splits2 = [...Object.keys(EXERCISE_LIBRARY), 'Custom'];
   const libNames = Object.values(EXERCISE_LIBRARY).flat();
@@ -2756,6 +2860,9 @@ function guidedPrev() {
 }
 
 function guidedFinish() {
+  const finishBtn = document.getElementById('guided-finish-btn');
+  if (finishBtn && finishBtn.disabled) return;
+  if (finishBtn) { finishBtn.disabled = true; }
   guidedSaveCurrent();
   const tpl = _guidedTpl;
   const exercises = DB.exercises;
@@ -3625,13 +3732,13 @@ function deleteSplit(splitId) {
   DB.exercises = exercises;
   DB.splits = splits.filter(sp => sp.id !== splitId);
   renderSplitsPage();
-  populateSplitSelects();
+  scheduleSplitSelects();
 }
 
 function resetSplitsToDefault() {
   if (!confirm('Reset to the 6 default splits? Your exercises and workouts are safe.')) return;
   DB.splits = DEFAULT_SPLITS.map(s => ({ ...s, id: 'split_' + s.name.toLowerCase() }));
-  populateSplitSelects();
+  scheduleSplitSelects();
   renderSplitsPage();
 }
 
@@ -3701,7 +3808,7 @@ function saveSplitModal() {
   DB.splits = splits;
   closeSplitModal();
   renderSplitsPage();
-  populateSplitSelects();
+  scheduleSplitSelects();
 
   // If we're on the log page, refresh the split tabs
   if (document.getElementById('page-log').classList.contains('active')) {
@@ -4641,8 +4748,9 @@ function lbRenderH2H(entries) {
 
 document.addEventListener('DOMContentLoaded', function() {
   try {
+    _initDebounced();
     seedDefaults();
-    populateSplitSelects();
+    scheduleSplitSelects();
     initTheme();
     renderDashboard();
     updateAchievementNavBadge();
