@@ -1008,7 +1008,7 @@
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent3)" id="lb-my-sessions">0</div>
-                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Gym Days</div>
+                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Sessions</div>
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent2)" id="lb-my-volume">0</div>
@@ -1033,7 +1033,7 @@
         <div class="tab-bar" style="margin-bottom:20px">
           <button class="tab-btn active" id="lb-tab-gs" onclick="lbSetTab('gs')"><span class="tab-icon">🏆</span><span class="tab-lbl">Score</span></button>
           <button class="tab-btn" id="lb-tab-vol" onclick="lbSetTab('vol')"><span class="tab-icon">🔥</span><span class="tab-lbl">Volume</span></button>
-          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')"><span class="tab-icon">📅</span><span class="tab-lbl">Gym Days</span></button>
+          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')"><span class="tab-icon">📅</span><span class="tab-lbl">Sessions</span></button>
           <button class="tab-btn" id="lb-tab-prs" onclick="lbSetTab('prs')"><span class="tab-icon">🎯</span><span class="tab-lbl">PRs</span></button>
           <button class="tab-btn" id="lb-tab-h2h" onclick="lbSetTab('h2h')"><span class="tab-icon">⚔️</span><span class="tab-lbl">H2H</span></button>
           <button class="tab-btn" id="lb-tab-chat" onclick="lbSetTab('chat')"><span class="tab-icon">💬</span><span class="tab-lbl">Chat</span></button>
@@ -1558,7 +1558,7 @@ function renderDashboard() {
   document.getElementById('dashboard-date').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
   // Stats
-  document.getElementById('stat-total').textContent = workouts.length;
+  document.getElementById('stat-total').textContent = new Set(workouts.map(w=>w.date)).size;
   document.getElementById('stat-exercises').textContent = workouts.length;
 
   const totalVol = workouts.reduce((sum, w) => sum + w.sets.reduce((s, set) => s + set.weight * set.reps, 0), 0);
@@ -1567,6 +1567,13 @@ function renderDashboard() {
   // PRs
   const prs = getPRs();
   document.getElementById('stat-prs').textContent = Object.keys(prs).length;
+
+  // Gamerscore
+  const gs = getTotalGamerScore();
+  const gsEl = document.getElementById('stat-gs');
+  const gsSubEl = document.getElementById('stat-gs-sub');
+  if (gsEl) gsEl.textContent = gs + 'G';
+  if (gsSubEl) gsSubEl.textContent = DB.unlockedAchievements.length + ' achievement' + (DB.unlockedAchievements.length !== 1 ? 's' : '');
 
   // Recent workouts
   const recentEl = document.getElementById('recent-workouts');
@@ -2841,7 +2848,8 @@ function aiptGetContext() {
   const recentStr = recentWorkouts.map(w => {
     const ex = exercises.find(e => e.id === w.exerciseId);
     const maxW = Math.max(...w.sets.map(s => s.weight));
-    return `${w.date}: ${ex?.name||'Unknown'} — ${w.sets.length} sets, max ${maxW}kg`;
+    const vol = Math.round(w.sets.reduce((s,x)=>s+x.weight*x.reps,0));
+    return `${w.date}: ${ex?.name||'Unknown'} — ${w.sets.length} sets, max ${maxW}kg, ${vol}kg vol`;
   }).join('\n');
 
   // Volume by split this week
@@ -2856,7 +2864,7 @@ function aiptGetContext() {
   });
   const weekStr = Object.entries(weekSplits).map(([s,n]) => `${s}: ${n} sessions`).join(', ') || 'No sessions this week';
 
-  return `You are a no-nonsense personal trainer in a gym app called Dialled. You have the user's full training data. Keep responses SHORT and punchy — 2-4 sentences max. Be direct like a real PT talking to a client. No bullet points, no long explanations. Just tell them what to do and why in plain English.
+  return `You are a no-nonsense personal trainer in a gym app called Dialled. You have the user's full training data. Keep responses SHORT and punchy — 2-4 sentences max. Be direct like a real PT. No bullet points, no long explanations. If someone asks a stupid or irrelevant question, be sarcastic and funny about it — roast them a bit, then bring it back to training. You've got a dry sense of humour. Just tell them what to do and why in plain English.
 
 USER'S TRAINING DATA:
 - Total sessions: ${totalSessions}
