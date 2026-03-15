@@ -831,7 +831,7 @@
             </div>
             <div class="form-group" id="exercise-picker-group" style="display:none">
               <label class="form-label">Exercise</label>
-              <input type="text" class="form-input" id="log-ex-search" placeholder="🔍 Search exercises..." style="margin-bottom:8px;font-size:13px" oninput="_debouncedLogFilter(this.value)">
+              <input type="text" class="form-input" id="log-ex-search" placeholder="🔍 Search exercises..." autocomplete="off" style="margin-bottom:8px;font-size:13px" oninput="_debouncedLogFilter(this.value)">
               <div id="exercise-picker-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:220px;overflow-y:auto;padding-right:4px"></div>
               <input type="hidden" id="log-exercise">
               <div id="selected-exercise-display" style="display:none;margin-top:10px;padding:10px 14px;background:var(--surface3);border:1px solid var(--accent);border-radius:8px;font-weight:600;font-size:14px;color:var(--accent)"></div>
@@ -881,6 +881,7 @@
             </div>
             <hr class="divider">
             <div style="display:flex;gap:8px"><button class="btn btn-primary" id="save-workout-btn" style="flex:1" onclick="saveWorkout()">💾 Save Workout</button><button class="btn btn-secondary" onclick="tplSaveCurrentAsTemplate()" title="Save as template">📋</button></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:right">Ctrl+Enter to save</div>
           </div>
         </div>
 
@@ -911,7 +912,7 @@
       <!-- Exercises section -->
       <div class="card-title" style="font-size:16px;margin-bottom:16px">🏋️ Exercises</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <input type="text" class="form-input" id="exercise-search" placeholder="🔍 Search exercises..." style="flex:1;font-size:13px" oninput="_debouncedRenderExercises()">
+        <input type="text" class="form-input" id="exercise-search" placeholder="🔍 Search exercises..." autocomplete="off" style="flex:1;font-size:13px" oninput="_debouncedRenderExercises()">
         <button class="btn btn-primary btn-sm" onclick="openExerciseModal()">+ Add Exercise</button>
       </div>
       <div id="ex-split-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px"></div>
@@ -1076,13 +1077,13 @@
         </p>
         <div class="form-group">
           <label class="form-label">Your Username</label>
-          <input type="text" class="form-input" id="lb-username-input" placeholder="e.g. IronMike" maxlength="20" onkeypress="if(event.key==='Enter')lbJoin()">
+          <input type="text" class="form-input" id="lb-username-input" placeholder="e.g. IronMike" maxlength="20" autocomplete="off" onkeypress="if(event.key==='Enter')lbJoin()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Board ID <span style="color:var(--text3);font-weight:400">(share with your mates — everyone on same ID competes together)</span></label>
           <div style="display:flex;gap:8px">
-            <input type="text" class="form-input" id="lb-board-input" placeholder="e.g. thelads" maxlength="30" onkeypress="if(event.key==='Enter')lbJoin()">
+            <input type="text" class="form-input" id="lb-board-input" placeholder="e.g. thelads" maxlength="30" autocomplete="off" onkeypress="if(event.key==='Enter')lbJoin()">
             <button class="btn btn-secondary btn-sm" onclick="lbGenerateId()" style="white-space:nowrap">Generate</button>
           </div>
         </div>
@@ -1159,11 +1160,11 @@
           <div class="card-title">Create Template</div>
           <div class="form-group">
             <label class="form-label">Template Name</label>
-            <input type="text" class="form-input" id="tpl-name-input" placeholder="e.g. Push Day A">
+            <input type="text" class="form-input" id="tpl-name-input" placeholder="e.g. Push Day A" autocomplete="off">
           </div>
           <div class="form-group">
             <label class="form-label">Exercises</label>
-            <input type="text" class="form-input" id="tpl-ex-search" placeholder="🔍 Filter exercises..." style="margin-bottom:8px;font-size:13px" oninput="tplFilterAllRows(this.value)">
+            <input type="text" class="form-input" id="tpl-ex-search" placeholder="🔍 Filter exercises..." autocomplete="off" style="margin-bottom:8px;font-size:13px" oninput="tplFilterAllRows(this.value)">
             <div id="tpl-exercises-list" style="margin-bottom:8px"></div>
             <button class="btn btn-secondary btn-sm" onclick="tplAddExRow()">+ Add Exercise</button>
             <div id="tpl-ex-count" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
@@ -1289,7 +1290,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Exercise Name</label>
-      <input type="text" class="form-input" id="new-exercise-name" placeholder="e.g. Barbell Curl" onkeypress="if(event.key==='Enter')saveExercise()">
+      <input type="text" class="form-input" id="new-exercise-name" placeholder="e.g. Barbell Curl" autocomplete="off" onkeypress="if(event.key==='Enter')saveExercise()">
     </div>
     <div class="form-group">
       <label class="form-label">Split / Category</label>
@@ -1312,7 +1313,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Split Name</label>
-      <input type="text" class="form-input" id="split-modal-name" placeholder="e.g. Push Day" onkeypress="if(event.key==='Enter')saveSplitModal()">
+      <input type="text" class="form-input" id="split-modal-name" placeholder="e.g. Push Day" autocomplete="off" onkeypress="if(event.key==='Enter')saveSplitModal()">
     </div>
     <div class="form-group">
       <label class="form-label">Icon (emoji)</label>
@@ -3436,9 +3437,57 @@ async function guidedFinish() {
 }
 
 async function guidedQuit() {
-  if (!await showConfirm('Quit this workout? Your progress so far will be lost.', 'Quit Workout')) return;
+  // Save current exercise's inputs before evaluating
+  guidedSaveCurrent();
+
+  // Count how many exercises have sets logged so far
+  const completedCount = Object.values(_guidedSets).filter(sets => sets && sets.length > 0).length;
+
+  if (completedCount === 0) {
+    // Nothing logged — just quit
+    if (!await showConfirm('Quit this workout? Nothing has been logged yet.', 'Quit Workout')) return;
+    _guidedTpl = null;
+    showPage('templates');
+    return;
+  }
+
+  // Something logged — offer to save partial progress
+  const confirmed = await showConfirm(
+    `You've logged ${completedCount} exercise${completedCount !== 1 ? 's' : ''} so far. Save your progress before quitting?`,
+    'Save & Quit'
+  );
+
+  if (!confirmed) {
+    // They chose cancel — go back to workout
+    return;
+  }
+
+  // Save whatever has been logged
+  const tpl = _guidedTpl;
+  const today = new Date().toISOString().slice(0, 10);
+  let saved = 0;
+
+  tpl.exercises.forEach((te, i) => {
+    const sets = _guidedSets[i] || [];
+    if (!sets.length) return;
+    const workouts = DB.workouts;
+    workouts.push({
+      id: uid(),
+      exerciseId: te.exerciseId,
+      date: today,
+      sets,
+      note: `${tpl.name} — partial workout`
+    });
+    DB.workouts = workouts;
+    saved++;
+  });
+
+  bustPRCache();
+  checkAchievements();
+  haptic('medium');
   _guidedTpl = null;
-  showPage('templates');
+  showPage('dashboard');
+  showToast(`Saved ${saved} exercise${saved !== 1 ? 's' : ''} from partial workout`, 'success');
 }
 
 
@@ -3510,21 +3559,52 @@ function aiptGetContext() {
   });
   const weekStr = Object.entries(weekSplits).map(([s,n]) => `${s}: ${n} sessions`).join(', ') || 'No sessions this week';
 
+  // Current streak
+  const currentStreak = getCurrentStreak(workouts);
+
+  // Bodyweight trend
+  const bwLog = [...DB.bodyweight].sort((a,b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+  let bwStr = 'Not logged';
+  if (bwLog.length >= 2) {
+    const latest = bwLog[bwLog.length - 1];
+    const change = (latest.weight - bwLog[0].weight).toFixed(1);
+    const trend = parseFloat(change) > 0 ? '+' + change + 'kg since start' : change + 'kg since start';
+    bwStr = latest.weight + 'kg (' + trend + ', ' + bwLog.length + ' entries)';
+  } else if (bwLog.length === 1) {
+    bwStr = bwLog[0].weight + 'kg (1 entry)';
+  }
+
+  // Templates
+  const tplNames = DB.templates.map(t => t.name).join(', ') || 'None';
+
+  // Volume per split last 30 days
+  const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30); cutoff30.setHours(0,0,0,0);
+  const splitVol30 = {};
+  workouts.filter(w => parseLocalDate(w.date) >= cutoff30).forEach(w => {
+    const ex = exercises.find(e => e.id === w.exerciseId);
+    if (ex) splitVol30[ex.category] = (splitVol30[ex.category] || 0) + w.sets.reduce((s,x) => s + x.weight * x.reps, 0);
+  });
+  const splitVolStr = Object.entries(splitVol30).sort((a,b) => b[1]-a[1])
+    .map(([s,v]) => s + ': ' + Math.round(v) + 'kg').join(', ') || 'No data';
+
   return `You are a no-nonsense personal trainer in a gym app called Dialled. You have the user's full training data. Keep responses SHORT and punchy — 2-4 sentences max. Be direct like a real PT. No bullet points, no long explanations. If someone asks a stupid or irrelevant question, be sarcastic and funny about it — roast them a bit, then bring it back to training. You've got a dry sense of humour. If someone asks for a plan but has no data yet, build them a solid beginner programme anyway — don't refuse just because there's no history. Ask their goal if needed (muscle, strength, fat loss) and give them a real plan. Just tell them what to do and why in plain English.
 
 USER'S TRAINING DATA:
 - Total sessions: ${totalSessions}
 - Total volume lifted: ${totalVol}kg
-- Gamerscore: ${getTotalGamerScore()}G
-- Achievements unlocked: ${DB.unlockedAchievements.length}
+- Current streak: ${currentStreak} day${currentStreak !== 1 ? 's' : ''} in a row
+- Gamerscore: ${getTotalGamerScore()}G (${DB.unlockedAchievements.length} achievements)
 - This week: ${weekStr}
+- Current bodyweight: ${bwStr}
+- Templates: ${DB.templates.length} saved (${tplNames})
 - Most trained exercises: ${topExercises || 'No exercises yet'}
 - Personal records: ${prSummary || 'No PRs yet'}
+- Volume last 30 days by muscle group: ${splitVolStr}
 
 RECENT SESSIONS (last 10):
 ${recentStr || 'No sessions logged yet'}
 
-Respond as their coach. Be encouraging but honest. If they have no data yet, encourage them to start logging.`;
+Respond as their coach. Be encouraging but honest. Reference their actual numbers when giving advice — don't be generic. If they have no data yet, encourage them to start logging.`;
 }
 
 async function aiptSend() {
@@ -5460,6 +5540,17 @@ function showPrompt(msg, defaultVal = '', title = 'Enter a value') {
     field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { cleanup(field.value.trim() || null); } }, { once: true });
   });
 }
+
+document.addEventListener('keydown', function(e) {
+  // Ctrl+Enter (or Cmd+Enter on Mac) saves workout when on the log page
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    const logPage = document.getElementById('page-log');
+    if (logPage && logPage.classList.contains('active')) {
+      e.preventDefault();
+      saveWorkout();
+    }
+  }
+});
 
 document.addEventListener('DOMContentLoaded', function() {
   try {
