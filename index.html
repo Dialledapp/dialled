@@ -1008,7 +1008,7 @@
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent3)" id="lb-my-sessions">0</div>
-                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Sessions</div>
+                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Gym Days</div>
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent2)" id="lb-my-volume">0</div>
@@ -1033,7 +1033,7 @@
         <div class="tab-bar" style="margin-bottom:20px">
           <button class="tab-btn active" id="lb-tab-gs" onclick="lbSetTab('gs')"><span class="tab-icon">🏆</span><span class="tab-lbl">Score</span></button>
           <button class="tab-btn" id="lb-tab-vol" onclick="lbSetTab('vol')"><span class="tab-icon">🔥</span><span class="tab-lbl">Volume</span></button>
-          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')"><span class="tab-icon">📅</span><span class="tab-lbl">Sessions</span></button>
+          <button class="tab-btn" id="lb-tab-sess" onclick="lbSetTab('sess')"><span class="tab-icon">📅</span><span class="tab-lbl">Gym Days</span></button>
           <button class="tab-btn" id="lb-tab-prs" onclick="lbSetTab('prs')"><span class="tab-icon">🎯</span><span class="tab-lbl">PRs</span></button>
           <button class="tab-btn" id="lb-tab-h2h" onclick="lbSetTab('h2h')"><span class="tab-icon">⚔️</span><span class="tab-lbl">H2H</span></button>
           <button class="tab-btn" id="lb-tab-chat" onclick="lbSetTab('chat')"><span class="tab-icon">💬</span><span class="tab-lbl">Chat</span></button>
@@ -2065,7 +2065,7 @@ function showExerciseDetail(exId) {
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
         <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500">${workouts.length}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Sessions</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Gym Days</div>
       </div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
         <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500">${pr.weight||0}kg</div>
@@ -3171,7 +3171,7 @@ function lbRenderBoard(entries) {
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <span style="font-size:14px;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent3)">${p.sessions||0}</span>
-            <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Exercises</span>
+            <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Gym Days</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <span style="font-size:14px;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${vol}kg</span>
@@ -3550,7 +3550,7 @@ async function lbRenderWinner(entries) {
         </div>
         <div style="background:var(--surface2);border-radius:8px;padding:10px">
           <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--accent3)">${winner.sessions||0}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Sessions</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Gym Days</div>
         </div>
         <div style="background:var(--surface2);border-radius:8px;padding:10px">
           <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--accent2)">${vol}</div>
