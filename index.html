@@ -1307,22 +1307,22 @@
         <div id="lb-my-banner" class="card" style="margin-bottom:20px;border-color:rgba(232,255,71,.3);background:rgba(232,255,71,.04)">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div>
-              <div style="font-size:11px;color:var(--text3);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Your Stats</div>
+              <div style="font-size:11px;color:var(--text3);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Your Stats This Week</div>
               <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px" id="lb-my-name"></div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px">Board: <span id="lb-my-board" style="color:var(--accent);font-weight:600"></span></div>
             </div>
             <div style="display:flex;gap:20px;flex-wrap:wrap">
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent)" id="lb-my-gs">0G</div>
-                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Gamerscore</div>
+                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">All-time Score</div>
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent3)" id="lb-my-sessions">0</div>
-                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Gym Days</div>
+                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Sessions</div>
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent2)" id="lb-my-volume">0</div>
-                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Total kg</div>
+                <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase">Volume</div>
               </div>
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--purple)" id="lb-my-prs">0</div>
@@ -2126,6 +2126,15 @@ function initLogPage() {
   document.getElementById('exercise-picker-group').style.display = 'none';
   document.getElementById('selected-exercise-display').style.display = 'none';
   renderSplitTabs();
+  // Re-enable save button so the user can log another exercise
+  const btn = document.getElementById('save-workout-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '💾 Save Workout';
+    btn.style.background = '';
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  }
 }
 
 function renderLogSplitTabs() { renderSplitTabs(); }
@@ -4086,16 +4095,48 @@ function statsSetTab(tab) {
 
 function lbMyStats() {
   const workouts = DB.workouts;
-  const totalVol = Math.round(workouts.reduce((s,w) => s + w.sets.reduce((a,b) => a + b.weight*b.reps, 0), 0));
+
+  // Weekly window: Monday 00:00 → now
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const weekWorkouts = workouts.filter(w => parseLocalDate(w.date) >= monday);
+
+  // Weekly sessions = distinct days trained this week
+  const weekSessions = new Set(weekWorkouts.map(w => w.date)).size;
+
+  // Weekly volume
+  const weekVol = Math.round(weekWorkouts.reduce((s,w) =>
+    s + w.sets.reduce((a,b) => a + b.weight * b.reps, 0), 0));
+
+  // Weekly PRs = exercises where this week's best beats all previous bests
+  const allPRsBefore = {}; // best per exercise BEFORE this week
+  workouts.filter(w => parseLocalDate(w.date) < monday).forEach(w => {
+    const best = safeMax(w.sets, 'weight');
+    if (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId]) {
+      allPRsBefore[w.exerciseId] = best;
+    }
+  });
+  const weekPRs = new Set();
+  weekWorkouts.forEach(w => {
+    const best = safeMax(w.sets, 'weight');
+    if (best > 0 && (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId])) {
+      weekPRs.add(w.exerciseId);
+    }
+  });
+
+  // Gamerscore stays all-time (it's a lifetime achievement score)
   return {
     username: LB.username,
     board_id: LB.boardId,
-    gamerscore: getTotalGamerScore(),
+    gamerscore: getTotalGamerScore(),   // all-time — used for Hall of Fame tiebreak
     achievements: DB.unlockedAchievements.length,
-    sessions: new Set(workouts.map(w => w.date)).size,
-    volume: totalVol,
-    prs: Object.keys(getPRs()).length,
-    updated_at: new Date().toISOString(),
+    sessions: weekSessions,             // THIS WEEK
+    volume: weekVol,                    // THIS WEEK
+    prs: weekPRs.size,                  // THIS WEEK
+    updated_at: now.toISOString(),
   };
 }
 
@@ -4122,7 +4163,6 @@ async function sbFetch(path, opts={}) {
 async function lbPush() {
   if (!LB.username || !LB.boardId) return;
   const stats = lbMyStats();
-  // Try upsert first, fall back to update if exists
   try {
     await sbFetch('leaderboard', {
       method: 'POST',
@@ -4130,7 +4170,6 @@ async function lbPush() {
       body: JSON.stringify(stats)
     });
   } catch(e) {
-    // If insert fails, try update
     await sbFetch(`leaderboard?username=eq.${encodeURIComponent(LB.username)}`, {
       method: 'PATCH',
       body: JSON.stringify(stats)
@@ -4229,7 +4268,7 @@ function lbRenderBoard(entries) {
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <span style="font-size:14px;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent3)">${p.sessions||0}</span>
-            <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Gym Days</span>
+            <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Sessions</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <span style="font-size:14px;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${vol}kg</span>
@@ -4244,11 +4283,15 @@ function lbRenderBoard(entries) {
     </div>`;
   }).join('');
 
+  const boardMonday = lbGetMonday(new Date());
+  const boardSunday = new Date(boardMonday); boardSunday.setDate(boardMonday.getDate() + 6);
+  const weekRangeStr = formatDateShort(boardMonday.toISOString().slice(0,10)) + ' – ' + formatDateShort(boardSunday.toISOString().slice(0,10));
   el.innerHTML = `<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <div class="card-title" style="margin-bottom:0">Board: <span style="color:var(--accent)">${LB.boardId}</span></div>
       <div style="font-size:12px;color:var(--text3)">${sorted.length} player${sorted.length!==1?'s':''}</div>
     </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">📅 Week of ${weekRangeStr} — resets Monday</div>
     ${cards}
   </div>`;
 }
@@ -4400,13 +4443,30 @@ async function lbCheckWeeklyReset() {
     if (lastWeekPlayers.length < 2) return;
 
     // Winner = highest gamerscore among players active last week
-    const winner = [...lastWeekPlayers].sort((a, b) => (b.gamerscore || 0) - (a.gamerscore || 0))[0];
+    // Weekly winner: most sessions → most volume → gamerscore tiebreak
+    const winner = [...lastWeekPlayers].sort((a, b) => {
+      if ((b.sessions||0) !== (a.sessions||0)) return (b.sessions||0) - (a.sessions||0);
+      if ((b.volume||0)   !== (a.volume||0))   return (b.volume||0)   - (a.volume||0);
+      return (b.gamerscore||0) - (a.gamerscore||0);
+    })[0];
     if (!winner || !winner.username) return;
 
-    // Write to Hall of Fame
+    // Check if this week already has an entry before writing
+    // (guards against multiple devices on the same board all trying to crown on Monday)
+    const existing = await sbFetch(
+      `hall_of_fame?board_id=eq.${encodeURIComponent(LB.boardId)}&week_start=eq.${weekKey}`,
+      { headers: { 'Prefer': 'return=representation' } }
+    );
+    if (Array.isArray(existing) && existing.length > 0) {
+      // Already crowned by another device — just mark locally and skip
+      localStorage.setItem('lb_crowned_' + LB.boardId + '_' + weekKey, '1');
+      return;
+    }
+
+    // Write to Hall of Fame — first device to get here wins
     await sbFetch('hall_of_fame', {
       method: 'POST',
-      headers: { 'Prefer': 'return=minimal' },
+      headers: { 'Prefer': 'return=minimal,resolution=ignore-duplicates' },
       body: JSON.stringify({
         board_id: LB.boardId,
         username: winner.username,
@@ -4435,9 +4495,18 @@ async function lbLoadHallOfFame() {
       return;
     }
 
-    // Calculate streaks
+    // Deduplicate by week_start — keep only the first entry per week
+    // (guards against duplicate entries from the multi-device race condition)
+    const seenWeeks = new Set();
+    const dedupedEntries = entries.filter(e => {
+      if (seenWeeks.has(e.week_start)) return false;
+      seenWeeks.add(e.week_start);
+      return true;
+    });
+
+    // Calculate streaks using deduplicated entries
     const streaks = {};
-    const sorted = [...entries].sort((a,b) => new Date(a.week_start) - new Date(b.week_start));
+    const sorted = [...dedupedEntries].sort((a,b) => new Date(a.week_start) - new Date(b.week_start));
     let currentStreak = 1;
     for (let i=1; i<sorted.length; i++) {
       const prev = sorted[i-1];
@@ -4451,11 +4520,11 @@ async function lbLoadHallOfFame() {
     }
     if (sorted.length > 0) streaks[sorted[0].week_start + sorted[0].username] = 1;
 
-    // Count total wins
+    // Count total wins from deduplicated entries
     const winCounts = {};
-    entries.forEach(e => { winCounts[e.username] = (winCounts[e.username]||0) + 1; });
+    dedupedEntries.forEach(e => { winCounts[e.username] = (winCounts[e.username]||0) + 1; });
 
-    const rows = entries.map((e, i) => {
+    const rows = dedupedEntries.map((e, i) => {
       const streak = streaks[e.week_start + e.username] || 1;
       const isMe = e.username.toLowerCase() === LB.username.toLowerCase();
       const weekDate = new Date(e.week_start).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
@@ -4598,7 +4667,11 @@ async function lbRenderWinner(entries) {
   // Fall back to nothing rather than showing whoever joined the board most recently.
   const thisWeek = entries.filter(p => p.updated_at && new Date(p.updated_at) >= monday);
   if (thisWeek.length < 2) { el.innerHTML = ''; return; }
-  const winner = [...thisWeek].sort((a,b) => (b.gamerscore||0) - (a.gamerscore||0))[0];
+  const winner = [...thisWeek].sort((a, b) => {
+    if ((b.sessions||0) !== (a.sessions||0)) return (b.sessions||0) - (a.sessions||0);
+    if ((b.volume||0)   !== (a.volume||0))   return (b.volume||0)   - (a.volume||0);
+    return (b.gamerscore||0) - (a.gamerscore||0);
+  })[0];
   if (!winner) return;
 
   const vol = (winner.volume||0) >= 1000 ? ((winner.volume||0)/1000).toFixed(1)+'k' : (winner.volume||0);
