@@ -4095,47 +4095,52 @@ function statsSetTab(tab) {
 
 function lbMyStats() {
   const workouts = DB.workouts;
+  const now = new Date();
 
   // Weekly window: Monday 00:00 → now
-  const now = new Date();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   monday.setHours(0, 0, 0, 0);
 
   const weekWorkouts = workouts.filter(w => parseLocalDate(w.date) >= monday);
 
-  // Weekly sessions = distinct days trained this week
+  // Weekly stats
   const weekSessions = new Set(weekWorkouts.map(w => w.date)).size;
-
-  // Weekly volume
   const weekVol = Math.round(weekWorkouts.reduce((s,w) =>
     s + w.sets.reduce((a,b) => a + b.weight * b.reps, 0), 0));
 
-  // Weekly PRs = exercises where this week's best beats all previous bests
-  const allPRsBefore = {}; // best per exercise BEFORE this week
+  // Weekly PRs
+  const allPRsBefore = {};
   workouts.filter(w => parseLocalDate(w.date) < monday).forEach(w => {
     const best = safeMax(w.sets, 'weight');
-    if (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId]) {
+    if (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId])
       allPRsBefore[w.exerciseId] = best;
-    }
   });
   const weekPRs = new Set();
   weekWorkouts.forEach(w => {
     const best = safeMax(w.sets, 'weight');
-    if (best > 0 && (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId])) {
+    if (best > 0 && (!allPRsBefore[w.exerciseId] || best > allPRsBefore[w.exerciseId]))
       weekPRs.add(w.exerciseId);
-    }
   });
 
-  // Gamerscore stays all-time (it's a lifetime achievement score)
+  // All-time totals (stored alongside so the leaderboard has full context)
+  const allTimeVol = Math.round(workouts.reduce((s,w) =>
+    s + w.sets.reduce((a,b) => a + b.weight * b.reps, 0), 0));
+  const allTimeSessions = new Set(workouts.map(w => w.date)).size;
+
   return {
     username: LB.username,
     board_id: LB.boardId,
-    gamerscore: getTotalGamerScore(),   // all-time — used for Hall of Fame tiebreak
+    gamerscore: getTotalGamerScore(),
     achievements: DB.unlockedAchievements.length,
-    sessions: weekSessions,             // THIS WEEK
-    volume: weekVol,                    // THIS WEEK
-    prs: weekPRs.size,                  // THIS WEEK
+    // Weekly stats — what the leaderboard ranks by
+    sessions: weekSessions,
+    volume: weekVol,
+    prs: weekPRs.size,
+    // All-time stats — shown in "Your Stats" banner for context
+    all_sessions: allTimeSessions,
+    all_volume: allTimeVol,
+    all_prs: Object.keys(getPRs()).length,
     updated_at: now.toISOString(),
   };
 }
@@ -4311,6 +4316,7 @@ function lbUpdateMyBanner() {
   document.getElementById('lb-my-name').textContent = s.username;
   document.getElementById('lb-my-board').textContent = LB.boardId;
   document.getElementById('lb-my-gs').textContent = s.gamerscore + 'G';
+  // Show weekly stats in banner (what the competition is based on)
   document.getElementById('lb-my-sessions').textContent = s.sessions;
   document.getElementById('lb-my-volume').textContent = s.volume >= 1000 ? (s.volume/1000).toFixed(1)+'k' : s.volume;
   document.getElementById('lb-my-prs').textContent = s.prs;
@@ -4337,6 +4343,8 @@ function lbInit() {
         </div></div>`;
     }
     lbCheckWeeklyReset();
+    // Always push fresh stats on init so weekly numbers are current
+    lbPush().catch(() => {});
     lbRefresh();
     lbStartPolling();
   } else {
